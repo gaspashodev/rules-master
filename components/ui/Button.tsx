@@ -2,14 +2,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
 import Animated, {
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring
 } from 'react-native-reanimated';
 
 interface ButtonProps {
   onPress: () => void;
-  children: string;
+  children: React.ReactNode;
   variant?: 'primary' | 'secondary';
   style?: ViewStyle;
 }
