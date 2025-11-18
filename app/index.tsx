@@ -1,10 +1,10 @@
-import { Button } from '@/components/ui/Button';
-import { GlassCard } from '@/components/ui/GlassCard';
-import { GradientBackground } from '@/components/ui/GradientBackground';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Button } from '../components/ui/Button';
+import { GlassCard } from '../components/ui/GlassCard';
+import { GradientBackground } from '../components/ui/GradientBackground';
 
 export default function HomeScreen() {
   const handleStartLearning = () => {
