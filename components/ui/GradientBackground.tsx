@@ -4,8 +4,10 @@ import { StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
+  useSharedValue,
+  withDelay,
   withRepeat,
-  withTiming
+  withTiming,
 } from 'react-native-reanimated';
 import { useTheme } from '../../lib/contexts/ThemeContext';
 
@@ -32,7 +34,7 @@ export function GradientBackground({ children }: GradientBackgroundProps) {
       <AnimatedOrb 
         colors={[colors.orb2Start, colors.orb2End]} 
         style={styles.orb2}
-        delay={5000}
+        delay={2000}
       />
       
       {children}
@@ -47,26 +49,43 @@ interface AnimatedOrbProps {
 }
 
 function AnimatedOrb({ colors, style, delay = 0 }: AnimatedOrbProps) {
-  const animatedStyle = useAnimatedStyle(() => {
-    const translateX = withRepeat(
-      withTiming(30, { duration: 7000, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true // reverse: fait automatiquement l'aller-retour
+  const translateX = useSharedValue(-30);
+  const translateY = useSharedValue(-30);
+
+  React.useEffect(() => {
+    // Mouvement horizontal : -30 ↔ +30
+    translateX.value = withDelay(
+      delay,
+      withRepeat(
+        withTiming(30, { 
+          duration: 8000, 
+          easing: Easing.inOut(Easing.ease) 
+        }),
+        -1,
+        true // reverse
+      )
     );
 
-    const translateY = withRepeat(
-      withTiming(-30, { duration: 6000, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true
+    // Mouvement vertical : -30 ↔ +30
+    translateY.value = withDelay(
+      delay,
+      withRepeat(
+        withTiming(30, { 
+          duration: 6000, 
+          easing: Easing.inOut(Easing.ease) 
+        }),
+        -1,
+        true
+      )
     );
+  }, [delay]);
 
-    return {
-      transform: [
-        { translateX },
-        { translateY },
-      ],
-    };
-  });
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+    ],
+  }));
 
   return (
     <Animated.View style={[style, animatedStyle]}>

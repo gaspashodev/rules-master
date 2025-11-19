@@ -18,10 +18,10 @@ export const Colors = {
     cardBorder: 'rgba(0, 0, 0, 0.08)',
     
     // Orbs (gradient backgrounds)
-    orb1Start: '#3b82f6',
-    orb1End: '#8b5cf6',
-    orb2Start: '#ec4899',
-    orb2End: '#f43f5e',
+    orb1Start: '#ddd6fe',
+    orb1End: '#c4b5fd',
+    orb2Start: '#fce7f3',
+    orb2End: '#fbcfe8',
     
     // Status
     success: '#10b981',
@@ -55,7 +55,7 @@ export const Colors = {
     orb1Start: '#3b82f6',
     orb1End: '#8b5cf6',
     orb2Start: '#ec4899',
-    orb2End: '#f43f5e',
+    orb2End: '#f43f5e', 
     
     // Status
     success: '#10b981',
