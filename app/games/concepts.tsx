@@ -19,8 +19,10 @@ export default function ConceptsScreen() {
 
   const handleConceptPress = (conceptId: string, locked: boolean) => {
     if (locked) return;
-    // TODO: Navigate to lesson screen
-    console.log('Navigate to concept:', conceptId);
+    router.push({
+      pathname: '/games/lesson',
+      params: { conceptId },
+    });
   };
 
   return (
