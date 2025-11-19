@@ -1,36 +1,36 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
-    Easing,
-    useAnimatedStyle,
-    withRepeat,
-    withSequence,
-    withTiming,
+  Easing,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming
 } from 'react-native-reanimated';
-
-const { width, height } = Dimensions.get('window');
+import { useTheme } from '../../lib/contexts/ThemeContext';
 
 interface GradientBackgroundProps {
   children: React.ReactNode;
 }
 
 export function GradientBackground({ children }: GradientBackgroundProps) {
+  const { colors } = useTheme();
+
   return (
     <View style={styles.container}>
-      {/* Fond noir de base */}
+      {/* Fond de base */}
       <LinearGradient
-        colors={['#000000', '#0a0a0a', '#000000']}
+        colors={[colors.background, colors.backgroundSecondary, colors.background] as any}
         style={StyleSheet.absoluteFill}
       />
       
       {/* Orbes animés */}
       <AnimatedOrb 
-        colors={['#3b82f6', '#8b5cf6']} 
+        colors={[colors.orb1Start, colors.orb1End]} 
         style={styles.orb1}
       />
       <AnimatedOrb 
-        colors={['#ec4899', '#f43f5e']} 
+        colors={[colors.orb2Start, colors.orb2End]} 
         style={styles.orb2}
         delay={5000}
       />
@@ -49,23 +49,15 @@ interface AnimatedOrbProps {
 function AnimatedOrb({ colors, style, delay = 0 }: AnimatedOrbProps) {
   const animatedStyle = useAnimatedStyle(() => {
     const translateX = withRepeat(
-      withSequence(
-        withTiming(30, { duration: 7000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(-20, { duration: 7000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 6000, easing: Easing.inOut(Easing.ease) })
-      ),
+      withTiming(30, { duration: 7000, easing: Easing.inOut(Easing.ease) }),
       -1,
-      false
+      true // reverse: fait automatiquement l'aller-retour
     );
 
     const translateY = withRepeat(
-      withSequence(
-        withTiming(-30, { duration: 6000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(20, { duration: 8000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 6000, easing: Easing.inOut(Easing.ease) })
-      ),
+      withTiming(-30, { duration: 6000, easing: Easing.inOut(Easing.ease) }),
       -1,
-      false
+      true
     );
 
     return {
@@ -79,7 +71,7 @@ function AnimatedOrb({ colors, style, delay = 0 }: AnimatedOrbProps) {
   return (
     <Animated.View style={[style, animatedStyle]}>
       <LinearGradient
-        colors={colors}
+        colors={colors as any}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.orbGradient}

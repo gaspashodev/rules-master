@@ -1,15 +1,17 @@
+import { GradientBackground } from '@/components/ui/GradientBackground';
+import { useRouter } from 'expo-router';
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../components/ui/Button';
 import { GlassCard } from '../components/ui/GlassCard';
-import { GradientBackground } from '../components/ui/GradientBackground';
 
 export default function HomeScreen() {
+  const router = useRouter();
+
   const handleStartLearning = () => {
-    console.log('Start learning pressed');
-    // TODO: Naviguer vers l'écran des concepts
+    router.push('/games/concepts');
   };
 
   const handleOpenCoach = () => {
@@ -17,9 +19,23 @@ export default function HomeScreen() {
     // TODO: Naviguer vers l'écran du coach IA
   };
 
+  const handleOpenSettings = () => {
+    router.push('/settings');
+  };
+
   return (
     <GradientBackground>
       <SafeAreaView style={styles.container}>
+        {/* Settings Button */}
+        <Animated.View 
+          entering={FadeIn.duration(600).delay(50)}
+          style={styles.settingsButton}
+        >
+          <Pressable onPress={handleOpenSettings} style={styles.settingsIcon}>
+            <Text style={styles.settingsEmoji}>⚙️</Text>
+          </Pressable>
+        </Animated.View>
+
         <ScrollView 
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -127,6 +143,23 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  settingsButton: {
+    position: 'absolute',
+    top: 60,
+    right: 24,
+    zIndex: 10,
+  },
+  settingsIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  settingsEmoji: {
+    fontSize: 24,
   },
   scrollContent: {
     paddingHorizontal: 24,

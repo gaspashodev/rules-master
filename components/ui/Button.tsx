@@ -1,3 +1,4 @@
+import { useTheme } from '@/lib/contexts/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
@@ -17,6 +18,7 @@ interface ButtonProps {
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function Button({ onPress, children, variant = 'primary', style }: ButtonProps) {
+  const { colors } = useTheme();
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -40,12 +42,16 @@ export function Button({ onPress, children, variant = 'primary', style }: Button
         style={[animatedStyle, style]}
       >
         <LinearGradient
-          colors={['#8b5cf6', '#6366f1']}
+          colors={[colors.primary, colors.primaryLight] as any}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.primaryButton}
         >
-          <Text style={styles.primaryText}>{children}</Text>
+          {typeof children === 'string' ? (
+            <Text style={styles.primaryText}>{children}</Text>
+          ) : (
+            children
+          )}
         </LinearGradient>
       </AnimatedPressable>
     );
@@ -56,9 +62,21 @@ export function Button({ onPress, children, variant = 'primary', style }: Button
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      style={[styles.secondaryButton, animatedStyle, style]}
+      style={[
+        styles.secondaryButton, 
+        { 
+          backgroundColor: colors.cardBackground,
+          borderColor: colors.cardBorder 
+        },
+        animatedStyle, 
+        style
+      ]}
     >
-      <Text style={styles.secondaryText}>{children}</Text>
+      {typeof children === 'string' ? (
+        <Text style={[styles.secondaryText, { color: colors.text }]}>{children}</Text>
+      ) : (
+        children
+      )}
     </AnimatedPressable>
   );
 }
@@ -69,11 +87,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     borderRadius: 16,
     alignItems: 'center',
-    shadowColor: '#8b5cf6',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
   },
   primaryText: {
     color: '#ffffff',
@@ -86,15 +99,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     borderRadius: 16,
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 12,
   },
   secondaryText: {
-    color: '#ffffff',
     fontSize: 14,
     fontWeight: '500',
   },

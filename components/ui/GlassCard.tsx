@@ -1,11 +1,12 @@
+import { useTheme } from '@/lib/contexts/ThemeContext';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { Pressable, StyleSheet, View, ViewStyle } from 'react-native';
 import Animated, {
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring
 } from 'react-native-reanimated';
 
 interface GlassCardProps {
@@ -18,6 +19,7 @@ interface GlassCardProps {
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function GlassCard({ children, style, intensity = 20, onPress }: GlassCardProps) {
+  const { theme, colors } = useTheme();
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -39,11 +41,23 @@ export function GlassCard({ children, style, intensity = 20, onPress }: GlassCar
     onPressOut: handlePressOut,
   } : {};
 
+  const gradientColors = theme === 'dark'
+    ? (['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)'] as any)
+    : (['rgba(0, 0, 0, 0.03)', 'rgba(0, 0, 0, 0.01)'] as any);
+
   return (
-    <Wrapper style={[styles.container, style, onPress && animatedStyle]} {...wrapperProps}>
-      <BlurView intensity={intensity} tint="dark" style={styles.blur}>
+    <Wrapper 
+      style={[
+        styles.container, 
+        { borderColor: colors.cardBorder }, 
+        style, 
+        onPress && animatedStyle
+      ]} 
+      {...wrapperProps}
+    >
+      <BlurView intensity={intensity} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.blur}>
         <LinearGradient
-          colors={['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)']}
+          colors={gradientColors}
           style={styles.gradient}
         >
           {children}
@@ -58,7 +72,6 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   blur: {
     overflow: 'hidden',
