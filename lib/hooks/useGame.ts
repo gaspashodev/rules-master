@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { CLANK_GAME } from '../data/clank-mock';
 import { storageService } from '../services/storage';
 import type { UserProgress } from '../types/database';
@@ -11,11 +11,7 @@ export function useGame(gameId: string) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  useEffect(() => {
-    loadProgress();
-  }, [gameId]);
-
-  const loadProgress = async () => {
+  const loadProgress = useCallback(async () => {
     try {
       setIsLoading(true);
       const userProgress = await storageService.getUserProgress(gameId);
@@ -25,7 +21,11 @@ export function useGame(gameId: string) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [gameId]);
+
+  useEffect(() => {
+    loadProgress();
+  }, [loadProgress]);
 
   // Enrichir les concepts avec l'état de complétion
   const enrichedGame = progress
@@ -61,11 +61,7 @@ export function useUserStats() {
   const [progress, setProgress] = useState<UserProgress | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadStats();
-  }, []);
-
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       const userProgress = await storageService.getUserProgress('clank-001');
       setProgress(userProgress);
@@ -74,7 +70,11 @@ export function useUserStats() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
 
   return {
     data: progress
