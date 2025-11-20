@@ -6,10 +6,12 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme } from '../../lib/contexts/ThemeContext';
 import { useGame, useUserStats } from '../../lib/hooks/useGame';
 
 export default function ConceptsScreen() {
   const router = useRouter();
+  const { colors, theme } = useTheme();
   const { data: game, refetch, isLoading } = useGame('clank-001');
   const { data: stats, refetch: refetchStats } = useUserStats();
 
@@ -23,13 +25,13 @@ export default function ConceptsScreen() {
 
   if (isLoading || !game) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         <LinearGradient
-          colors={['#000000', '#0a0a0a', '#000000']}
+          colors={[colors.background, colors.backgroundSecondary, colors.background] as any}
           style={StyleSheet.absoluteFill}
         />
         <SafeAreaView style={styles.safeArea}>
-          <Text style={{ color: '#ffffff', textAlign: 'center', marginTop: 100 }}>
+          <Text style={{ color: colors.text, textAlign: 'center', marginTop: 100 }}>
             Chargement...
           </Text>
         </SafeAreaView>
@@ -49,44 +51,48 @@ export default function ConceptsScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Background */}
       <LinearGradient
-        colors={['#000000', '#0a0a0a', '#000000']}
+        colors={[colors.background, colors.backgroundSecondary, colors.background] as any}
         style={StyleSheet.absoluteFill}
       />
 
       {/* Orbs */}
       <View style={[styles.orb, styles.orb1]}>
-        <LinearGradient colors={['#3b82f6', '#8b5cf6']} style={styles.orbGradient} />
+        <LinearGradient colors={[colors.orb1Start, colors.orb1End] as any} style={styles.orbGradient} />
       </View>
       <View style={[styles.orb, styles.orb2]}>
-        <LinearGradient colors={['#ec4899', '#f43f5e']} style={styles.orbGradient} />
+        <LinearGradient colors={[colors.orb2Start, colors.orb2End] as any} style={styles.orbGradient} />
       </View>
 
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
         <Animated.View entering={FadeIn.duration(400)} style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <Text style={styles.backText}>← Retour</Text>
+            <Text style={[styles.backText, { color: colors.textSecondary }]}>← Retour</Text>
           </Pressable>
-          <Text style={styles.gameTitle}>{game.icon} {game.name}</Text>
-          <Text style={styles.gameSubtitle}>Ton parcours d'apprentissage</Text>
+          <Text style={[styles.gameTitle, { color: colors.text }]}>{game.icon} {game.name}</Text>
+          <Text style={[styles.gameSubtitle, { color: colors.textSecondary }]}>Ton parcours d'apprentissage</Text>
 
           {/* Progress bar */}
-          <View style={styles.progressCard}>
-            <BlurView intensity={20} tint="dark" style={styles.progressBlur}>
+          <View style={[styles.progressCard, { borderColor: colors.cardBorder }]}>
+            <BlurView intensity={20} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.progressBlur}>
               <LinearGradient
-                colors={['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)']}
+                colors={
+                  theme === 'dark'
+                    ? ['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)']
+                    : ['rgba(0, 0, 0, 0.03)', 'rgba(0, 0, 0, 0.01)']
+                }
                 style={styles.progressContent}
               >
                 <View style={styles.progressHeader}>
-                  <Text style={styles.progressLabel}>Progression</Text>
-                  <Text style={styles.progressPercent}>{progress}%</Text>
+                  <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>Progression</Text>
+                  <Text style={[styles.progressPercent, { color: colors.text }]}>{progress}%</Text>
                 </View>
                 <View style={styles.progressBarBg}>
                   <Animated.View
-                    style={[styles.progressBarFill, { width: `${progress}%` }]}
+                    style={[styles.progressBarFill, { width: `${progress}%`, backgroundColor: colors.primary }]}
                   />
                 </View>
               </LinearGradient>
@@ -109,10 +115,14 @@ export default function ConceptsScreen() {
                 onPress={() => handleConceptPress(concept.id, concept.locked)}
                 disabled={concept.locked}
               >
-                <View style={styles.conceptCard}>
-                  <BlurView intensity={20} tint="dark" style={styles.conceptBlur}>
+                <View style={[styles.conceptCard, { borderColor: colors.cardBorder }]}>
+                  <BlurView intensity={20} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.conceptBlur}>
                     <LinearGradient
-                      colors={['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)']}
+                      colors={
+                        theme === 'dark'
+                          ? ['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)']
+                          : ['rgba(0, 0, 0, 0.03)', 'rgba(0, 0, 0, 0.01)']
+                      }
                       style={[
                         styles.conceptContent,
                         concept.locked && styles.conceptLocked,
@@ -122,24 +132,25 @@ export default function ConceptsScreen() {
                         <View
                           style={[
                             styles.conceptIcon,
+                            { backgroundColor: concept.completed ? colors.success + '33' : concept.locked ? colors.locked + '33' : colors.difficultyBg },
                             concept.completed && styles.conceptIconCompleted,
                             concept.locked && styles.conceptIconLocked,
                           ]}
                         >
-                          <Text style={styles.conceptIconText}>
+                          <Text style={[styles.conceptIconText, { color: colors.text }]}>
                             {concept.completed ? '✓' : concept.locked ? '🔒' : index + 1}
                           </Text>
                         </View>
                         <View style={styles.conceptInfo}>
-                          <Text style={styles.conceptName}>{concept.name}</Text>
-                          <Text style={styles.conceptDescription}>
+                          <Text style={[styles.conceptName, { color: colors.text }]}>{concept.name}</Text>
+                          <Text style={[styles.conceptDescription, { color: colors.textSecondary }]}>
                             {concept.description}
                           </Text>
                           <View style={styles.conceptMeta}>
-                            <Text style={styles.conceptMetaText}>
+                            <Text style={[styles.conceptMetaText, { color: colors.textTertiary }]}>
                               ⏱️ {concept.estimatedTime} min
                             </Text>
-                            <Text style={styles.conceptMetaText}>
+                            <Text style={[styles.conceptMetaText, { color: colors.textTertiary }]}>
                               {'⭐'.repeat(concept.difficulty)}
                               {'☆'.repeat(3 - concept.difficulty)}
                             </Text>
@@ -147,7 +158,7 @@ export default function ConceptsScreen() {
                         </View>
                       </View>
                       {!concept.locked && (
-                        <Text style={styles.conceptArrow}>→</Text>
+                        <Text style={[styles.conceptArrow, { color: colors.textTertiary }]}>→</Text>
                       )}
                     </LinearGradient>
                   </BlurView>
@@ -162,25 +173,29 @@ export default function ConceptsScreen() {
           entering={FadeIn.duration(400).delay(700)}
           style={styles.footer}
         >
-          <View style={styles.statsCard}>
-            <BlurView intensity={20} tint="dark" style={styles.statsBlur}>
+          <View style={[styles.statsCard, { borderColor: colors.cardBorder }]}>
+            <BlurView intensity={20} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.statsBlur}>
               <LinearGradient
-                colors={['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)']}
+                colors={
+                  theme === 'dark'
+                    ? ['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)']
+                    : ['rgba(0, 0, 0, 0.03)', 'rgba(0, 0, 0, 0.01)']
+                }
                 style={styles.statsContent}
               >
                 <View style={styles.stat}>
-                  <Text style={styles.statValue}>{stats?.totalXP || 0}</Text>
-                  <Text style={styles.statLabel}>XP Total</Text>
+                  <Text style={[styles.statValue, { color: colors.text }]}>{stats?.totalXP || 0}</Text>
+                  <Text style={[styles.statLabel, { color: colors.textTertiary }]}>XP Total</Text>
                 </View>
                 <View style={styles.stat}>
-                  <Text style={styles.statValue}>{stats?.streak || 0} 🔥</Text>
-                  <Text style={styles.statLabel}>Série</Text>
+                  <Text style={[styles.statValue, { color: colors.text }]}>{stats?.streak || 0} 🔥</Text>
+                  <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Série</Text>
                 </View>
                 <View style={styles.stat}>
-                  <Text style={styles.statValue}>
+                  <Text style={[styles.statValue, { color: colors.text }]}>
                     {completedCount}/{game.concepts.length}
                   </Text>
-                  <Text style={styles.statLabel}>Complétés</Text>
+                  <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Complétés</Text>
                 </View>
               </LinearGradient>
             </BlurView>
@@ -194,7 +209,6 @@ export default function ConceptsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
   },
   orb: {
     position: 'absolute',
@@ -230,25 +244,21 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   backText: {
-    color: '#9ca3af',
     fontSize: 14,
   },
   gameTitle: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#ffffff',
     marginBottom: 4,
   },
   gameSubtitle: {
     fontSize: 14,
-    color: '#9ca3af',
     marginBottom: 20,
   },
   progressCard: {
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   progressBlur: {
     overflow: 'hidden',
@@ -264,12 +274,10 @@ const styles = StyleSheet.create({
   },
   progressLabel: {
     fontSize: 12,
-    color: '#9ca3af',
   },
   progressPercent: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#ffffff',
   },
   progressBarBg: {
     height: 8,
@@ -279,7 +287,6 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#8b5cf6',
     borderRadius: 4,
   },
   scrollContent: {
@@ -293,7 +300,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   conceptBlur: {
     overflow: 'hidden',
@@ -317,20 +323,14 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: 'rgba(139, 92, 246, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  conceptIconCompleted: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-  },
-  conceptIconLocked: {
-    backgroundColor: 'rgba(107, 114, 128, 0.2)',
-  },
+  conceptIconCompleted: {},
+  conceptIconLocked: {},
   conceptIconText: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#ffffff',
   },
   conceptInfo: {
     flex: 1,
@@ -343,7 +343,6 @@ const styles = StyleSheet.create({
   },
   conceptDescription: {
     fontSize: 12,
-    color: '#9ca3af',
     marginBottom: 6,
   },
   conceptMeta: {
@@ -352,11 +351,9 @@ const styles = StyleSheet.create({
   },
   conceptMetaText: {
     fontSize: 11,
-    color: '#6b7280',
   },
   conceptArrow: {
     fontSize: 24,
-    color: 'rgba(255, 255, 255, 0.3)',
   },
   footer: {
     position: 'absolute',
@@ -370,7 +367,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   statsBlur: {
     overflow: 'hidden',
@@ -386,11 +382,9 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#ffffff',
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 10,
-    color: '#6b7280',
   },
 });
