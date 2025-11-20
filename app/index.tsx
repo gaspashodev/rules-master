@@ -1,16 +1,37 @@
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../components/ui/Button';
 import { GlassCard } from '../components/ui/GlassCard';
 import { GradientBackground } from '../components/ui/GradientBackground';
+import { useAuth } from '../lib/contexts/AuthContext';
 import { useTheme } from '../lib/contexts/ThemeContext';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const { isAuthenticated, loading } = useAuth();
+
+  // Show loading while checking auth
+  if (loading) {
+    return (
+      <GradientBackground>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+            Chargement...
+          </Text>
+        </View>
+      </GradientBackground>
+    );
+  }
+
+  // Redirect to login if not authenticated
+  if (!isAuthenticated) {
+    return <Redirect href="/auth/login" />;
+  }
 
   const handleStartLearning = () => {
     router.push('/games/concepts');
@@ -157,6 +178,15 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
   },
   settingsButton: {
     position: 'absolute',

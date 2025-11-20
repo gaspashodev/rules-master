@@ -2,29 +2,49 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../lib/contexts/AuthContext';
 import { useTheme } from '../lib/contexts/ThemeContext';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { theme, colors, toggleTheme } = useTheme();
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = () => {
+    Alert.alert(
+      'Déconnexion',
+      'Es-tu sûr de vouloir te déconnecter ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Déconnexion',
+          style: 'destructive',
+          onPress: async () => {
+            await signOut();
+            router.replace('/auth/login');
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Background */}
       <LinearGradient
-        colors={[colors.background, colors.backgroundSecondary, colors.background]}
+        colors={[colors.background, colors.backgroundSecondary, colors.background] as any}
         style={StyleSheet.absoluteFill}
       />
 
       {/* Orbs */}
       <View style={[styles.orb, styles.orb1]}>
-        <LinearGradient colors={[colors.orb1Start, colors.orb1End]} style={styles.orbGradient} />
+        <LinearGradient colors={[colors.orb1Start, colors.orb1End] as any} style={styles.orbGradient} />
       </View>
       <View style={[styles.orb, styles.orb2]}>
-        <LinearGradient colors={[colors.orb2Start, colors.orb2End]} style={styles.orbGradient} />
+        <LinearGradient colors={[colors.orb2Start, colors.orb2End] as any} style={styles.orbGradient} />
       </View>
 
       <SafeAreaView style={styles.safeArea}>
@@ -41,8 +61,75 @@ export default function SettingsScreen() {
 
         {/* Settings List */}
         <View style={styles.content}>
+          {/* Account Section */}
           <Animated.View 
             entering={FadeInDown.duration(400).delay(100)}
+            style={styles.section}
+          >
+            <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>
+              COMPTE
+            </Text>
+
+            {/* User Info Card */}
+            <View style={[styles.card, { borderColor: colors.cardBorder }]}>
+              <BlurView intensity={20} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.blur}>
+                <LinearGradient
+                  colors={
+                    theme === 'dark' 
+                      ? (['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)'] as const)
+                      : (['rgba(0, 0, 0, 0.03)', 'rgba(0, 0, 0, 0.01)'] as const)
+                  }
+                  style={styles.cardContent}
+                >
+                  <View style={styles.settingRow}>
+                    <View style={styles.settingLeft}>
+                      <Text style={styles.settingIcon}>👤</Text>
+                      <View>
+                        <Text style={[styles.settingTitle, { color: colors.text }]}>
+                          {user?.email}
+                        </Text>
+                        <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                          Connecté
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </LinearGradient>
+              </BlurView>
+            </View>
+
+            {/* Sign Out Button */}
+            <Pressable onPress={handleSignOut}>
+              <View style={[styles.card, { borderColor: colors.cardBorder }]}>
+                <BlurView intensity={20} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.blur}>
+                  <LinearGradient
+                    colors={
+                      theme === 'dark' 
+                        ? (['rgba(239, 68, 68, 0.05)', 'rgba(239, 68, 68, 0.02)'] as const)
+                        : (['rgba(239, 68, 68, 0.03)', 'rgba(239, 68, 68, 0.01)'] as const)
+                    }
+                    style={styles.cardContent}
+                  >
+                    <View style={styles.settingRow}>
+                      <View style={styles.settingLeft}>
+                        <Text style={styles.settingIcon}>🚪</Text>
+                        <View>
+                          <Text style={[styles.settingTitle, { color: '#ef4444' }]}>
+                            Déconnexion
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={[styles.arrow, { color: colors.textTertiary }]}>→</Text>
+                    </View>
+                  </LinearGradient>
+                </BlurView>
+              </View>
+            </Pressable>
+          </Animated.View>
+
+          {/* Appearance Section */}
+          <Animated.View 
+            entering={FadeInDown.duration(400).delay(200)}
             style={styles.section}
           >
             <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>
@@ -55,8 +142,8 @@ export default function SettingsScreen() {
                 <LinearGradient
                   colors={
                     theme === 'dark' 
-                      ? ['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)']
-                      : ['rgba(0, 0, 0, 0.03)', 'rgba(0, 0, 0, 0.01)']
+                      ? (['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)'] as const)
+                      : (['rgba(0, 0, 0, 0.03)', 'rgba(0, 0, 0, 0.01)'] as const)
                   }
                   style={styles.cardContent}
                 >
@@ -91,7 +178,7 @@ export default function SettingsScreen() {
 
           {/* Info Section */}
           <Animated.View 
-            entering={FadeInDown.duration(400).delay(200)}
+            entering={FadeInDown.duration(400).delay(300)}
             style={styles.section}
           >
             <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>
@@ -103,8 +190,8 @@ export default function SettingsScreen() {
                 <LinearGradient
                   colors={
                     theme === 'dark' 
-                      ? ['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)']
-                      : ['rgba(0, 0, 0, 0.03)', 'rgba(0, 0, 0, 0.01)']
+                      ? (['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)'] as const)
+                      : (['rgba(0, 0, 0, 0.03)', 'rgba(0, 0, 0, 0.01)'] as const)
                   }
                   style={styles.cardContent}
                 >
@@ -187,6 +274,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
+    marginBottom: 12,
   },
   blur: {
     overflow: 'hidden',
@@ -215,6 +303,10 @@ const styles = StyleSheet.create({
   },
   settingDescription: {
     fontSize: 12,
+  },
+  arrow: {
+    fontSize: 20,
+    opacity: 0.3,
   },
   infoRow: {
     flexDirection: 'row',
