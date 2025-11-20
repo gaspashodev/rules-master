@@ -9,12 +9,15 @@ import { Button } from '../../components/ui/Button';
 import { useTheme } from '../../lib/contexts/ThemeContext';
 import type { LessonSection } from '../../lib/data/clank-mock';
 import { CLANK_GAME } from '../../lib/data/clank-mock';
+import { useCompleteLesson } from '../../lib/hooks/useGame';
 
 export default function LessonScreen() {
   const router = useRouter();
   const { colors, theme } = useTheme();
   const { conceptId } = useLocalSearchParams<{ conceptId: string }>();
-  const [completed, setCompleted] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [xpEarned, setXpEarned] = useState(0);
+  const { completeLesson, isCompleting } = useCompleteLesson();
 
   // Trouver le concept dans les données
   const concept = CLANK_GAME.concepts.find((c) => c.id === conceptId);
@@ -22,31 +25,37 @@ export default function LessonScreen() {
   if (!concept) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Text style={{ color: colors.text }}>Concept non trouvé</Text>
+        <SafeAreaView style={styles.safeArea}>
+          <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <Text style={[styles.backText, { color: colors.textSecondary }]}>← Retour</Text>
+          </Pressable>
+          <Text style={{ color: colors.text, padding: 24 }}>Concept non trouvé</Text>
+        </SafeAreaView>
       </View>
     );
   }
 
-  const handleComplete = () => {
-    setCompleted(true);
-    // TODO: Persister la complétion dans Supabase/AsyncStorage
-    setTimeout(() => {
-      router.back();
-    }, 500);
+  const handleComplete = async () => {
+    try {
+      // Marquer comme complété via le service
+      const result = await completeLesson(CLANK_GAME.id, conceptId);
+      
+      if (result) {
+        setIsCompleted(true);
+        setXpEarned(result.completion.xpEarned);
+        
+        // Retour à l'écran concepts après un délai
+        setTimeout(() => {
+          router.back();
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Error completing lesson:', error);
+      // TODO: Afficher un message d'erreur à l'utilisateur
+    }
   };
 
   const renderSection = (section: LessonSection, index: number) => {
-    const getSectionStyle = () => {
-      switch (section.type) {
-        case 'tip':
-          return styles.tipSection;
-        case 'example':
-          return styles.exampleSection;
-        default:
-          return null;
-      }
-    };
-
     const getSectionBorder = () => {
       switch (section.type) {
         case 'tip':
@@ -68,7 +77,6 @@ export default function LessonScreen() {
           style={[
             styles.sectionCard,
             { borderColor: colors.cardBorder },
-            getSectionStyle(),
             getSectionBorder(),
           ]}
         >
@@ -76,8 +84,8 @@ export default function LessonScreen() {
             <LinearGradient
               colors={
                 theme === 'dark'
-                  ? ['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)']
-                  : ['rgba(0, 0, 0, 0.03)', 'rgba(0, 0, 0, 0.01)']
+                  ? (['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)'] as const)
+                  : (['rgba(0, 0, 0, 0.03)', 'rgba(0, 0, 0, 0.01)'] as const)
               }
               style={styles.sectionContent}
             >
@@ -100,16 +108,16 @@ export default function LessonScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Background */}
       <LinearGradient
-        colors={[colors.background, colors.backgroundSecondary, colors.background]}
+        colors={[colors.background, colors.backgroundSecondary, colors.background] as any}
         style={StyleSheet.absoluteFill}
       />
 
       {/* Orbs */}
       <View style={[styles.orb, styles.orb1]}>
-        <LinearGradient colors={[colors.orb1Start, colors.orb1End]} style={styles.orbGradient} />
+        <LinearGradient colors={[colors.orb1Start, colors.orb1End] as any} style={styles.orbGradient} />
       </View>
       <View style={[styles.orb, styles.orb2]}>
-        <LinearGradient colors={[colors.orb2Start, colors.orb2End]} style={styles.orbGradient} />
+        <LinearGradient colors={[colors.orb2Start, colors.orb2End] as any} style={styles.orbGradient} />
       </View>
 
       <SafeAreaView style={styles.safeArea}>
@@ -178,8 +186,8 @@ export default function LessonScreen() {
                 <LinearGradient
                   colors={
                     theme === 'dark'
-                      ? ['rgba(139, 92, 246, 0.1)', 'rgba(139, 92, 246, 0.05)']
-                      : ['rgba(139, 92, 246, 0.08)', 'rgba(139, 92, 246, 0.03)']
+                      ? (['rgba(139, 92, 246, 0.1)', 'rgba(139, 92, 246, 0.05)'] as const)
+                      : (['rgba(139, 92, 246, 0.08)', 'rgba(139, 92, 246, 0.03)'] as const)
                   }
                   style={styles.summaryContent}
                 >
@@ -202,8 +210,15 @@ export default function LessonScreen() {
           entering={FadeIn.duration(400).delay(800)}
           style={styles.footer}
         >
-          <Button onPress={handleComplete}>
-            {completed ? '✓ Leçon terminée !' : 'Marquer comme terminé'}
+          <Button 
+            onPress={handleComplete} 
+            style={isCompleting || isCompleted ? { opacity: 0.7 } : undefined}
+          >
+            {isCompleted 
+              ? `✓ +${xpEarned} XP` 
+              : isCompleting 
+              ? 'Enregistrement...' 
+              : 'Marquer comme terminé'}
           </Button>
         </Animated.View>
       </SafeAreaView>
@@ -307,12 +322,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-  },
-  tipSection: {
-    // Style spécial pour les tips
-  },
-  exampleSection: {
-    // Style spécial pour les exemples
   },
   blur: {
     overflow: 'hidden',

@@ -1,3 +1,4 @@
+import { useFocusEffect } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -9,10 +10,32 @@ import { useGame, useUserStats } from '../../lib/hooks/useGame';
 
 export default function ConceptsScreen() {
   const router = useRouter();
-  const { data: game } = useGame('clank-001');
-  const { data: stats } = useUserStats();
+  const { data: game, refetch, isLoading } = useGame('clank-001');
+  const { data: stats, refetch: refetchStats } = useUserStats();
 
-  if (!game) return null;
+  // Refetch quand l'écran revient au focus (après complétion d'une leçon)
+  useFocusEffect(
+    React.useCallback(() => {
+      refetch();
+      refetchStats();
+    }, [refetch, refetchStats])
+  );
+
+  if (isLoading || !game) {
+    return (
+      <View style={styles.container}>
+        <LinearGradient
+          colors={['#000000', '#0a0a0a', '#000000']}
+          style={StyleSheet.absoluteFill}
+        />
+        <SafeAreaView style={styles.safeArea}>
+          <Text style={{ color: '#ffffff', textAlign: 'center', marginTop: 100 }}>
+            Chargement...
+          </Text>
+        </SafeAreaView>
+      </View>
+    );
+  }
 
   const completedCount = game.concepts.filter((c) => c.completed).length;
   const progress = Math.round((completedCount / game.concepts.length) * 100);
