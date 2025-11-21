@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../lib/contexts/AuthContext';
 import { useTheme } from '../../lib/contexts/ThemeContext';
+import { getAuthErrorMessage } from '../../lib/utils/auth-errors';
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -66,22 +67,15 @@ export default function SignUpScreen() {
       const { error: authError } = await signUp(email, password);
 
       if (authError) {
-        // Messages d'erreur personnalisés
-        if (authError.message.includes('already registered')) {
-          setError('Cet email est déjà utilisé');
-        } else if (authError.message.includes('Password should be')) {
-          setError('Le mot de passe doit contenir au moins 6 caractères');
-        } else {
-          setError(authError.message);
-        }
+        setError(getAuthErrorMessage(authError));
         return;
       }
 
-      // Success - montrer un message et rediriger
-      alert('✅ Compte créé ! Vérifie ton email pour confirmer ton compte.');
+      // Success - montrer un message et rediriger vers login
+      alert('✅ Compte créé avec succès ! Tu peux maintenant te connecter.');
       router.replace('/auth/login');
     } catch (err) {
-      setError('Une erreur est survenue');
+      setError('Une erreur est survenue. Réessaie dans un instant');
       console.error(err);
     } finally {
       setLoading(false);

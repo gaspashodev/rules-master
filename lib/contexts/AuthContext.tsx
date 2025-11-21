@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { AuthUser } from '../services/auth';
 import { authService } from '../services/auth';
+import { migrationService } from '../services/migration';
 
 type AuthContextType = {
   user: AuthUser | null;
@@ -51,6 +52,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setUser(authUser);
+      
+      // Migrer les données locales vers Supabase si nécessaire
+      if (authUser) {
+        migrationService.migrateLocalDataToSupabase().catch((err) => {
+          console.error('Migration failed (non-blocking):', err);
+        });
+      }
+      
       return { error: null };
     } catch (error) {
       return { error: error as Error };
@@ -65,7 +74,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error };
       }
 
-      setUser(authUser);
+      // NE PAS set l'utilisateur ici pour permettre la redirection vers login
+      // setUser(authUser);
+      
+      // La migration se fera lors du premier signIn
+      
       return { error: null };
     } catch (error) {
       return { error: error as Error };

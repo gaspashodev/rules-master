@@ -15,9 +15,10 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button } from '../components/ui/Button';
-import { useAuth } from '../lib/contexts/AuthContext';
-import { useTheme } from '../lib/contexts/ThemeContext';
+import { Button } from '../../components/ui/Button';
+import { useAuth } from '../../lib/contexts/AuthContext';
+import { useTheme } from '../../lib/contexts/ThemeContext';
+import { getAuthErrorMessage } from '../../lib/utils/auth-errors';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -60,21 +61,14 @@ export default function LoginScreen() {
       const { error: authError } = await signIn(email, password);
 
       if (authError) {
-        // Messages d'erreur personnalisés
-        if (authError.message.includes('Invalid login credentials')) {
-          setError('Email ou mot de passe incorrect');
-        } else if (authError.message.includes('Email not confirmed')) {
-          setError('Vérifie ton email pour confirmer ton compte');
-        } else {
-          setError(authError.message);
-        }
+        setError(getAuthErrorMessage(authError));
         return;
       }
 
       // Success - le AuthContext redirigera automatiquement
       router.replace('/');
     } catch (err) {
-      setError('Une erreur est survenue');
+      setError('Une erreur est survenue. Réessaie dans un instant');
       console.error(err);
     } finally {
       setLoading(false);
