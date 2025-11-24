@@ -5,6 +5,7 @@ import React from 'react';
 import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GradientBackground } from '../components/ui/GradientBackground';
 import { useAuth } from '../lib/contexts/AuthContext';
 import { useTheme } from '../lib/contexts/ThemeContext';
 
@@ -32,21 +33,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Background */}
-      <LinearGradient
-        colors={[colors.background, colors.backgroundSecondary, colors.background] as any}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Orbs */}
-      <View style={[styles.orb, styles.orb1]}>
-        <LinearGradient colors={[colors.orb1Start, colors.orb1End] as any} style={styles.orbGradient} />
-      </View>
-      <View style={[styles.orb, styles.orb2]}>
-        <LinearGradient colors={[colors.orb2Start, colors.orb2End] as any} style={styles.orbGradient} />
-      </View>
-
+    <GradientBackground>
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
         <Animated.View entering={FadeIn.duration(400)} style={styles.header}>
@@ -205,7 +192,7 @@ export default function SettingsScreen() {
           </Animated.View>
         </View>
       </SafeAreaView>
-    </View>
+    </GradientBackground>
   );
 }
 

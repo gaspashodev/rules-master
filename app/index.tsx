@@ -1,3 +1,5 @@
+// app/index.tsx
+
 import { Redirect, useRouter } from 'expo-router';
 import React from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -35,10 +37,6 @@ export default function HomeScreen() {
 
   const handleStartLearning = () => {
     router.push('/games/concepts');
-  };
-
-  const handleOpenCoach = () => {
-    console.log('Open coach pressed');
   };
 
   const handleOpenSettings = () => {
@@ -82,7 +80,7 @@ export default function HomeScreen() {
           >
             <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>JEU EN VEDETTE</Text>
             
-            <GlassCard style={styles.gameCard}>
+            <GlassCard style={styles.gameCard} onPress={handleStartLearning}>
               <View style={styles.gameHeader}>
                 <View style={styles.gameInfo}>
                   <Text style={styles.gameIcon}>🐉</Text>
@@ -142,23 +140,9 @@ export default function HomeScreen() {
             </Button>
           </Animated.View>
 
-          {/* Secondary Action */}
-          <Animated.View 
-            entering={FadeInDown.duration(600).delay(400)}
-            style={styles.section}
-          >
-            <Button variant="secondary" onPress={handleOpenCoach}>
-              <Text style={styles.coachIcon}>🤖</Text>
-              <Text style={[styles.coachText, { color: colors.text }]}>Coach IA</Text>
-              <Text style={[styles.coachSubtext, { color: colors.textTertiary }]}>
-                · Pose tes questions pendant ta partie
-              </Text>
-            </Button>
-          </Animated.View>
-
           {/* Footer */}
           <Animated.View 
-            entering={FadeIn.duration(600).delay(500)}
+            entering={FadeIn.duration(600).delay(400)}
             style={styles.footer}
           >
             <Text style={[styles.footerText, { color: colors.textTertiary }]}>
@@ -236,7 +220,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   gameCard: {
-    padding: 0,
+    padding: 24,
   },
   gameHeader: {
     flexDirection: 'row',
@@ -306,16 +290,6 @@ const styles = StyleSheet.create({
   arrow: {
     fontSize: 20,
     opacity: 0.3,
-  },
-  coachIcon: {
-    fontSize: 24,
-  },
-  coachText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  coachSubtext: {
-    fontSize: 12,
   },
   footer: {
     alignItems: 'center',
