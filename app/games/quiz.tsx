@@ -1,9 +1,12 @@
 // app/games/quiz.tsx
-// VERSION CORRIGÉE - UUID valide avec crypto.randomUUID()
+// VERSION CORRIGÉE :
+// - Score calculé sur le TOTAL de questions (pas sur le nombre répondu)
+// - Sauvegarde des tentatives abandonnées
+// - Un seul bouton "Terminer"
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { QuizCard } from '../../components/quiz/QuizCard';
@@ -21,12 +24,10 @@ import type { QuizResult } from '../../lib/types/quiz-history';
 
 // Fonction pour générer un UUID v4 valide
 function generateUUID(): string {
-  // Utiliser crypto.randomUUID() si disponible (React Native >= 0.70)
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
   }
   
-  // Fallback : génération manuelle d'un UUID v4
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0;
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
@@ -101,30 +102,41 @@ export default function QuizScreen() {
   };
 
   const calculateResults = () => {
-    const percentage = Math.round((quizState.score / quiz.questions.length) * 100);
+    // ✅ CORRECTION : Score toujours sur le TOTAL de questions du quiz
+    const totalQuestions = quiz.questions.length;
+    const questionsAnswered = quizState.answers.length;
+    const percentage = Math.round((quizState.score / totalQuestions) * 100);
     const passed = percentage >= quiz.passingScore;
-    const perfectScore = percentage === 100;
+    const perfectScore = percentage === 100 && questionsAnswered === totalQuestions;
     const xpEarned = perfectScore ? quiz.bonusXP : 0;
 
-    return { percentage, passed, perfectScore, xpEarned };
+    return { 
+      percentage, 
+      passed, 
+      perfectScore, 
+      xpEarned, 
+      totalQuestions,
+      questionsAnswered 
+    };
   };
 
-  const handleFinish = async () => {
-    const { passed, perfectScore, xpEarned, percentage } = calculateResults();
+  /**
+   * Sauvegarde la tentative (complète ou abandonnée)
+   */
+  const saveQuizAttempt = async () => {
+    const { passed, perfectScore, xpEarned, percentage, totalQuestions, questionsAnswered } = calculateResults();
 
     try {
-      setIsSaving(true);
-
       const user = await authService.getCurrentUser();
       if (user) {
         const quizResult: QuizResult = {
-          id: generateUUID(), // ✅ UUID valide
+          id: generateUUID(),
           userId: user.id,
           gameId: CLANK_GAME.id,
           conceptId: conceptId,
           quizId: quiz.id,
           score: quizState.score,
-          totalQuestions: quiz.questions.length,
+          totalQuestions: totalQuestions, // ✅ Toujours le total du quiz
           percentage,
           passed,
           perfectScore,
@@ -140,24 +152,65 @@ export default function QuizScreen() {
         };
 
         await quizHistoryService.saveQuizResult(quizResult);
-        console.log('✅ Quiz result saved with UUID:', quizResult.id);
-      }
+        console.log('✅ Quiz saved:', {
+          score: `${quizState.score}/${totalQuestions}`,
+          answered: questionsAnswered,
+          percentage: `${percentage}%`,
+        });
 
-      if (perfectScore && xpEarned > 0) {
-        await completeLesson(CLANK_GAME.id, conceptId);
+        // Si score parfait, donner le bonus XP
+        if (perfectScore && xpEarned > 0) {
+          await completeLesson(CLANK_GAME.id, conceptId);
+        }
       }
-
-      setIsSaving(false);
-      router.back();
     } catch (error) {
-      console.error('Error finishing quiz:', error);
-      setIsSaving(false);
-      router.back();
+      console.error('Error saving quiz attempt:', error);
     }
   };
 
+  /**
+   * Fermeture normale avec sauvegarde
+   */
+  const handleFinish = async () => {
+    setIsSaving(true);
+    await saveQuizAttempt();
+    setIsSaving(false);
+    router.back();
+  };
+
+  /**
+   * Abandon prématuré (clic sur la croix)
+   */
+  const handleQuit = () => {
+    if (quizState.answers.length === 0) {
+      router.back();
+      return;
+    }
+
+    const { questionsAnswered, totalQuestions } = calculateResults();
+    
+    Alert.alert(
+      'Abandonner le quiz ?',
+      `Tu as répondu à ${questionsAnswered}/${totalQuestions} questions. Cette tentative sera enregistrée.`,
+      [
+        {
+          text: 'Continuer le quiz',
+          style: 'cancel',
+        },
+        {
+          text: 'Abandonner',
+          style: 'destructive',
+          onPress: async () => {
+            await saveQuizAttempt();
+            router.back();
+          },
+        },
+      ]
+    );
+  };
+
   if (quizCompleted) {
-    const { percentage, passed, perfectScore, xpEarned } = calculateResults();
+    const { percentage, passed, perfectScore, xpEarned, totalQuestions } = calculateResults();
 
     return (
       <GradientBackground>
@@ -180,7 +233,7 @@ export default function QuizScreen() {
             <Animated.View entering={FadeInDown.duration(600).delay(400)}>
               <GlassCard style={styles.scoreCard}>
                 <Text style={[styles.scoreNumber, { color: colors.text }]}>
-                  {quizState.score}/{quiz.questions.length}
+                  {quizState.score}/{totalQuestions}
                 </Text>
                 <Text style={[styles.scorePercentage, { color: colors.textSecondary }]}>
                   {percentage}% de réponses correctes
@@ -224,19 +277,12 @@ export default function QuizScreen() {
             </Animated.Text>
 
             <Animated.View entering={FadeInDown.duration(600).delay(700)} style={styles.actions}>
-              {!passed && (
-                <Button variant="secondary" onPress={() => router.back()}>
-                  <Text style={[{ fontSize: 14, fontWeight: '500' }, { color: colors.text }]}>
-                    Revoir la leçon
-                  </Text>
-                </Button>
-              )}
               <Button 
                 onPress={handleFinish}
                 style={isSaving ? { opacity: 0.7 } : undefined}
               >
                 <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '600' }}>
-                  {isSaving ? 'Enregistrement...' : (passed ? 'Continuer' : 'Terminer')}
+                  {isSaving ? 'Enregistrement...' : 'Terminer'}
                 </Text>
               </Button>
             </Animated.View>
@@ -250,7 +296,7 @@ export default function QuizScreen() {
     <GradientBackground>
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()}>
+          <Pressable onPress={handleQuit}>
             <Text style={[styles.closeButton, { color: colors.textSecondary }]}>✕</Text>
           </Pressable>
 
