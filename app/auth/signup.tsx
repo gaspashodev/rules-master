@@ -30,6 +30,7 @@ export default function SignUpScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   // Rediriger si déjà authentifié
   React.useEffect(() => {
@@ -67,20 +68,70 @@ export default function SignUpScreen() {
       const { error: authError } = await signUp(email, password);
 
       if (authError) {
-        setError(getAuthErrorMessage(authError));
+        // Afficher l'erreur traduite
+        const errorMessage = getAuthErrorMessage(authError);
+        setError(errorMessage);
+        
+        // Si c'est une erreur "email déjà utilisé", rester sur cette page
+        if (authError.message.toLowerCase().includes('already registered') ||
+            authError.message.toLowerCase().includes('user already registered')) {
+          // Ne pas rediriger, juste afficher l'erreur
+          return;
+        }
+        
         return;
       }
 
-      // Success - montrer un message et rediriger vers login
-      alert('✅ Compte créé avec succès ! Tu peux maintenant te connecter.');
-      router.replace('/auth/login');
+      // Success - afficher un message de succès dans l'UI
+      setSuccess(true);
+      
+      // Rediriger après un court délai
+      setTimeout(() => {
+        router.replace('/auth/login');
+      }, 2000);
+      
     } catch (err) {
       setError('Une erreur est survenue. Réessaie dans un instant');
-      console.error(err);
+      // Pas de console.error pour éviter les popups natives en dev
     } finally {
       setLoading(false);
     }
   };
+
+  // Si succès, afficher un message de confirmation
+  if (success) {
+    return (
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
+        <LinearGradient
+          colors={[colors.background, colors.backgroundSecondary, colors.background] as any}
+          style={StyleSheet.absoluteFill}
+        />
+        
+        <View style={[styles.orb, styles.orb1]}>
+          <LinearGradient colors={[colors.orb1Start, colors.orb1End] as any} style={styles.orbGradient} />
+        </View>
+        <View style={[styles.orb, styles.orb2]}>
+          <LinearGradient colors={[colors.orb2Start, colors.orb2End] as any} style={styles.orbGradient} />
+        </View>
+
+        <SafeAreaView style={styles.successContainer}>
+          <Animated.View entering={FadeIn.duration(600)} style={styles.successContent}>
+            <Text style={styles.successIcon}>✅</Text>
+            <Text style={[styles.successTitle, { color: colors.text }]}>
+              Compte créé !
+            </Text>
+            <Text style={[styles.successMessage, { color: colors.textSecondary }]}>
+              Tu peux maintenant te connecter{'\n'}avec ton compte
+            </Text>
+            <ActivityIndicator color={colors.primary} style={{ marginTop: 32 }} />
+          </Animated.View>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -352,5 +403,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  successContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  successContent: {
+    alignItems: 'center',
+  },
+  successIcon: {
+    fontSize: 80,
+    marginBottom: 24,
+  },
+  successTitle: {
+    fontSize: 32,
+    fontWeight: '900',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  successMessage: {
+    fontSize: 16,
+    fontWeight: '300',
+    textAlign: 'center',
+    lineHeight: 24,
   },
 });

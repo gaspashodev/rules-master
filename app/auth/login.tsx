@@ -61,7 +61,8 @@ export default function LoginScreen() {
       const { error: authError } = await signIn(email, password);
 
       if (authError) {
-        setError(getAuthErrorMessage(authError));
+        const errorMessage = getAuthErrorMessage(authError);
+        setError(errorMessage);
         return;
       }
 
@@ -69,7 +70,7 @@ export default function LoginScreen() {
       router.replace('/');
     } catch (err) {
       setError('Une erreur est survenue. Réessaie dans un instant');
-      console.error(err);
+      // Pas de console.error pour éviter les popups natives en dev
     } finally {
       setLoading(false);
     }
@@ -150,7 +151,14 @@ export default function LoginScreen() {
                   }
                   style={styles.inputContent}
                 >
-                  <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Mot de passe</Text>
+                  <View style={styles.passwordHeader}>
+                    <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Mot de passe</Text>
+                    <Pressable onPress={() => router.push('/auth/forgot-password')}>
+                      <Text style={[styles.forgotLink, { color: colors.primary }]}>
+                        Oublié ?
+                      </Text>
+                    </Pressable>
+                  </View>
                   <TextInput
                     style={[styles.input, { color: colors.text }]}
                     placeholder="••••••••"
@@ -271,11 +279,20 @@ const styles = StyleSheet.create({
   inputContent: {
     padding: 16,
   },
+  passwordHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   inputLabel: {
     fontSize: 12,
     fontWeight: '600',
-    marginBottom: 8,
     letterSpacing: 0.5,
+  },
+  forgotLink: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   input: {
     fontSize: 16,

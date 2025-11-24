@@ -28,7 +28,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         setThemeState(savedTheme);
       }
     } catch (error) {
-      console.error('Error loading theme:', error);
     }
   };
 
@@ -37,7 +36,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       setThemeState(newTheme);
       await AsyncStorage.setItem(THEME_STORAGE_KEY, newTheme);
     } catch (error) {
-      console.error('Error saving theme:', error);
     }
   };
 

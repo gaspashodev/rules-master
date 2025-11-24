@@ -50,8 +50,7 @@ export default function LessonScreen() {
         }, 1000);
       }
     } catch (error) {
-      console.error('Error completing lesson:', error);
-      // TODO: Afficher un message d'erreur à l'utilisateur
+
     }
   };
 

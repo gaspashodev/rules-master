@@ -37,7 +37,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const currentUser = await authService.getCurrentUser();
       setUser(currentUser);
     } catch (error) {
-      console.error('Error loading user:', error);
     } finally {
       setLoading(false);
     }
@@ -56,7 +55,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Migrer les données locales vers Supabase si nécessaire
       if (authUser) {
         migrationService.migrateLocalDataToSupabase().catch((err) => {
-          console.error('Migration failed (non-blocking):', err);
         });
       }
       
@@ -90,7 +88,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await authService.signOut();
       setUser(null);
     } catch (error) {
-      console.error('Error signing out:', error);
     }
   };
 
