@@ -1,5 +1,5 @@
 // app/games/lesson.tsx
-// VERSION AMÉLIORÉE - Gradient fade optimisé + Stats de quiz
+// VERSION FINALE - Avec stats tentatives quiz
 
 import { useFocusEffect } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
@@ -11,11 +11,13 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/ui/Button';
 import { GradientBackground } from '../../components/ui/GradientBackground';
+import { Toast } from '../../components/ui/Toast';
 import { useTheme } from '../../lib/contexts/ThemeContext';
 import type { LessonSection } from '../../lib/data/clank-mock';
 import { CLANK_GAME } from '../../lib/data/clank-mock';
 import { hasQuiz } from '../../lib/data/clank-quizzes';
 import { useCompleteLesson } from '../../lib/hooks/useGame';
+import { haptics } from '../../lib/services/haptics';
 import { quizHistoryService } from '../../lib/services/quiz-history';
 
 export default function LessonScreen() {
@@ -24,43 +26,43 @@ export default function LessonScreen() {
   const { conceptId } = useLocalSearchParams<{ conceptId: string }>();
   const [isCompleted, setIsCompleted] = useState(false);
   const [xpEarned, setXpEarned] = useState(0);
+  const [showXPToast, setShowXPToast] = useState(false);
   const { completeLesson, isCompleting } = useCompleteLesson();
 
-  // Stats du quiz
-  const [quizStats, setQuizStats] = useState<{
-    attemptCount: number;
-    bestScore: number | null;
-    hasPassed: boolean;
-  }>({ attemptCount: 0, bestScore: null, hasPassed: false });
+  // Stats quiz - tentatives
+  const [quizBestScore, setQuizBestScore] = useState<number | null>(null);
+  const [quizAttempts, setQuizAttempts] = useState(0);
+  const [quizPassed, setQuizPassed] = useState(false);
 
   const concept = CLANK_GAME.concepts.find((c) => c.id === conceptId);
   const quizAvailable = conceptId ? hasQuiz(conceptId) : false;
 
-  // Charger les stats du quiz au focus (après retour du quiz)
-  const loadQuizStats = useCallback(async () => {
-    if (!conceptId || !quizAvailable) return;
-
-    try {
-      const count = await quizHistoryService.getAttemptCount(conceptId);
-      const bestResult = await quizHistoryService.getBestScore(conceptId);
-      const passed = await quizHistoryService.hasPassedQuiz(conceptId);
-
-      setQuizStats({
-        attemptCount: count,
-        bestScore: bestResult?.percentage || null,
-        hasPassed: passed,
-      });
-    } catch (error) {
-      console.error('Error loading quiz stats:', error);
-    }
-  }, [conceptId, quizAvailable]);
-
-  // Recharger les stats quand l'écran revient au focus
+  // Charger les stats quiz au focus
   useFocusEffect(
     useCallback(() => {
-      loadQuizStats();
-    }, [loadQuizStats])
+      if (conceptId) {
+        loadQuizStats();
+      }
+    }, [conceptId])
   );
+
+  const loadQuizStats = async () => {
+    if (!conceptId) return;
+    
+    try {
+      const [bestScore, attempts, passed] = await Promise.all([
+        quizHistoryService.getBestScore(conceptId),
+        quizHistoryService.getAttemptCount(conceptId),
+        quizHistoryService.hasPassedQuiz(conceptId),
+      ]);
+      
+      setQuizBestScore(bestScore?.percentage ?? null);
+      setQuizAttempts(attempts);
+      setQuizPassed(passed);
+    } catch (error) {
+      // Silencieux
+    }
+  };
 
   if (!concept) {
     return (
@@ -76,6 +78,8 @@ export default function LessonScreen() {
   }
 
   const handleComplete = async () => {
+    haptics.medium();
+    
     try {
       const result = await completeLesson(CLANK_GAME.id, conceptId);
       
@@ -83,27 +87,35 @@ export default function LessonScreen() {
         setIsCompleted(true);
         setXpEarned(result.completion.xpEarned);
         
+        if (result.completion.xpEarned > 0) {
+          haptics.success();
+          setShowXPToast(true);
+        }
+        
         setTimeout(() => {
           router.back();
-        }, 1000);
+        }, 1500);
       }
     } catch (error) {
-      // Erreur silencieuse
+      // Silencieux
     }
   };
 
   const handleStartQuiz = () => {
+    haptics.light();
     router.push({
       pathname: '/games/quiz',
       params: { conceptId },
     });
   };
 
-  // ✅ Cacher le bouton quiz si score parfait atteint
-  const hasPerfectScore = quizStats.bestScore === 100;
+  const handleBack = () => {
+    haptics.light();
+    router.back();
+  };
 
   const renderSection = (section: LessonSection, index: number) => {
-    const getSectionBorder = () => {
+    const getSectionStyle = () => {
       switch (section.type) {
         case 'tip':
           return { borderLeftColor: colors.primary, borderLeftWidth: 3 };
@@ -124,7 +136,7 @@ export default function LessonScreen() {
           style={[
             styles.sectionCard,
             { borderColor: colors.cardBorder },
-            getSectionBorder(),
+            getSectionStyle(),
           ]}
         >
           <BlurView intensity={20} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.blur}>
@@ -152,23 +164,24 @@ export default function LessonScreen() {
   };
 
   const getCompleteButtonText = () => {
-    if (isCompleted) {
-      return `✓ +${xpEarned} XP`;
-    }
-    if (isCompleting) {
-      return 'Enregistrement...';
-    }
+    if (isCompleted) return `✓ +${xpEarned} XP`;
+    if (isCompleting) return 'Enregistrement...';
     return 'Marquer comme terminé';
   };
 
-  const getQuizButtonText = () => {
-    if (quizStats.attemptCount === 0) {
-      return '🎮 Tester mes connaissances';
+  // Construire le sous-texte du bouton quiz avec tentatives
+  const getQuizSubtext = () => {
+    if (quizAttempts === 0) {
+      return 'Pas encore tenté';
     }
-    if (quizStats.hasPassed) {
-      return `🎮 Retenter le quiz (Meilleur : ${quizStats.bestScore}%)`;
+    
+    const parts = [];
+    if (quizBestScore !== null) {
+      parts.push(`Meilleur : ${quizBestScore}%`);
     }
-    return `🎮 Réessayer le quiz (${quizStats.attemptCount} tentative${quizStats.attemptCount > 1 ? 's' : ''})`;
+    parts.push(`${quizAttempts} tentative${quizAttempts > 1 ? 's' : ''}`);
+    
+    return parts.join(' · ');
   };
 
   return (
@@ -176,7 +189,7 @@ export default function LessonScreen() {
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
         <Animated.View entering={FadeIn.duration(400)} style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Pressable onPress={handleBack} style={styles.backButton}>
             <Text style={[styles.backText, { color: colors.textSecondary }]}>← Retour</Text>
           </Pressable>
 
@@ -187,7 +200,7 @@ export default function LessonScreen() {
                 { backgroundColor: colors.difficultyBg, borderColor: colors.difficultyBorder },
               ]}
             >
-              <Text style={styles.conceptIconText}>{concept.order}</Text>
+              <Text style={[styles.conceptIconText, { color: colors.primary }]}>{concept.order}</Text>
             </View>
             <View style={styles.conceptInfo}>
               <Text style={[styles.conceptName, { color: colors.text }]}>{concept.name}</Text>
@@ -203,145 +216,108 @@ export default function LessonScreen() {
                 key={i}
                 style={[
                   styles.dot,
-                  {
-                    backgroundColor:
-                      i === 0 ? colors.primary : 'rgba(255, 255, 255, 0.2)',
-                  },
+                  { backgroundColor: i === 0 ? colors.primary : 'rgba(255, 255, 255, 0.2)' },
                 ]}
               />
             ))}
           </View>
         </Animated.View>
 
-        {/* Lesson Content */}
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Introduction */}
-          <Animated.View entering={FadeInDown.duration(400).delay(100)}>
-            <Text style={[styles.introduction, { color: colors.text }]}>
-              {concept.lesson.introduction}
-            </Text>
-          </Animated.View>
-
-          {/* Sections */}
-          {concept.lesson.sections.map((section, index) => renderSection(section, index))}
-
-          {/* Summary */}
-          <Animated.View
-            entering={FadeInDown.duration(400).delay(100 * (concept.lesson.sections.length + 2))}
-            style={styles.summaryWrapper}
+        {/* Content */}
+        <View style={styles.contentContainer}>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
           >
-            <View style={[styles.summaryCard, { borderColor: colors.cardBorder }]}>
-              <BlurView intensity={20} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.blur}>
-                <LinearGradient
-                  colors={
-                    theme === 'dark'
-                      ? (['rgba(139, 92, 246, 0.1)', 'rgba(139, 92, 246, 0.05)'] as const)
-                      : (['rgba(139, 92, 246, 0.08)', 'rgba(139, 92, 246, 0.03)'] as const)
-                  }
-                  style={styles.summaryContent}
-                >
-                  <Text style={[styles.summaryLabel, { color: colors.textTertiary }]}>
-                    📝 RÉSUMÉ
-                  </Text>
-                  <Text style={[styles.summaryText, { color: colors.text }]}>
-                    {concept.lesson.summary}
-                  </Text>
-                </LinearGradient>
-              </BlurView>
-            </View>
-          </Animated.View>
+            {/* Introduction */}
+            <Animated.View entering={FadeInDown.duration(400).delay(100)}>
+              <Text style={[styles.introduction, { color: colors.text }]}>
+                {concept.lesson.introduction}
+              </Text>
+            </Animated.View>
 
-          {/* Stats du quiz si disponible */}
-          {quizAvailable && quizStats.attemptCount > 0 && (
+            {/* Sections */}
+            {concept.lesson.sections.map((section, index) => renderSection(section, index))}
+
+            {/* Summary */}
             <Animated.View
-              entering={FadeInDown.duration(400).delay(100 * (concept.lesson.sections.length + 3))}
-              style={styles.quizStatsWrapper}
+              entering={FadeInDown.duration(400).delay(100 * (concept.lesson.sections.length + 2))}
+              style={styles.summaryWrapper}
             >
-              <View style={[styles.quizStatsCard, { borderColor: colors.cardBorder }]}>
+              <View style={[styles.summaryCard, { borderColor: colors.cardBorder }]}>
                 <BlurView intensity={20} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.blur}>
                   <LinearGradient
                     colors={
                       theme === 'dark'
-                        ? (['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)'] as const)
-                        : (['rgba(0, 0, 0, 0.03)', 'rgba(0, 0, 0, 0.01)'] as const)
+                        ? (['rgba(139, 92, 246, 0.1)', 'rgba(139, 92, 246, 0.05)'] as const)
+                        : (['rgba(139, 92, 246, 0.08)', 'rgba(139, 92, 246, 0.03)'] as const)
                     }
-                    style={styles.quizStatsContent}
+                    style={styles.summaryContent}
                   >
-                    <Text style={[styles.quizStatsLabel, { color: colors.textTertiary }]}>
-                      📊 STATISTIQUES DU QUIZ
+                    <Text style={[styles.summaryLabel, { color: colors.textTertiary }]}>
+                      📝 RÉSUMÉ
                     </Text>
-                    <View style={styles.quizStatsGrid}>
-                      <View style={styles.quizStat}>
-                        <Text style={[styles.quizStatValue, { color: colors.text }]}>
-                          {quizStats.attemptCount}
-                        </Text>
-                        <Text style={[styles.quizStatLabel, { color: colors.textSecondary }]}>
-                          Tentative{quizStats.attemptCount > 1 ? 's' : ''}
-                        </Text>
-                      </View>
-                      <View style={styles.quizStat}>
-                        <Text style={[styles.quizStatValue, { color: colors.text }]}>
-                          {quizStats.bestScore !== null ? `${quizStats.bestScore}%` : '-'}
-                        </Text>
-                        <Text style={[styles.quizStatLabel, { color: colors.textSecondary }]}>
-                          Meilleur score
-                        </Text>
-                      </View>
-                      <View style={styles.quizStat}>
-                        <Text style={[styles.quizStatValue, { color: quizStats.hasPassed ? colors.success : colors.locked }]}>
-                          {quizStats.hasPassed ? '✓' : '✗'}
-                        </Text>
-                        <Text style={[styles.quizStatLabel, { color: colors.textSecondary }]}>
-                          {quizStats.hasPassed ? 'Réussi' : 'Non réussi'}
-                        </Text>
-                      </View>
-                    </View>
+                    <Text style={[styles.summaryText, { color: colors.text }]}>
+                      {concept.lesson.summary}
+                    </Text>
                   </LinearGradient>
                 </BlurView>
               </View>
             </Animated.View>
-          )}
-        </ScrollView>
 
-        {/* Footer avec boutons - Ombre subtile pour séparer du contenu */}
-        <View style={[styles.footerShadow, {
-          shadowColor: colors.background,
-        }]} />
+            <View style={{ height: 200 }} />
+          </ScrollView>
 
-        {/* Footer avec boutons */}
-        <Animated.View
-          entering={FadeIn.duration(400).delay(800)}
-          style={styles.footer}
-        >
-          {/* ✅ Afficher le bouton quiz seulement si disponible ET score < 100% */}
-          {quizAvailable && !hasPerfectScore && (
-            <Button 
-              variant="secondary"
+          {/* Gradient fade */}
+          <LinearGradient
+            colors={
+              theme === 'dark'
+                ? ['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.8)', 'rgba(0, 0, 0, 1)']
+                : ['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0.8)', 'rgba(255, 255, 255, 1)']
+            }
+            style={styles.fadeGradient}
+            pointerEvents="none"
+          />
+        </View>
+
+        {/* Footer */}
+        <Animated.View entering={FadeIn.duration(400).delay(800)} style={styles.footer}>
+          {/* Quiz Button avec stats tentatives */}
+          {quizAvailable && (
+            <Pressable
               onPress={handleStartQuiz}
-              style={{ marginBottom: 12 }}
+              style={({ pressed }) => [
+                styles.quizButton,
+                { 
+                  backgroundColor: theme === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
+                  borderColor: colors.cardBorder,
+                  opacity: pressed ? 0.8 : 1,
+                },
+              ]}
             >
-              <Text style={[{ fontSize: 14, fontWeight: '500' }, { color: colors.text }]}>
-                {getQuizButtonText()}
-              </Text>
-            </Button>
-          )}
-
-          {/* Badge "Quiz maîtrisé" si score parfait */}
-          {quizAvailable && hasPerfectScore && (
-            <View style={[styles.perfectScoreBadge, { 
-              backgroundColor: colors.success + '20',
-              borderColor: colors.success + '40',
-              marginBottom: 12 
-            }]}>
-              <Text style={[styles.perfectScoreText, { color: colors.success }]}>
-                ✅ Quiz maîtrisé (100%)
-              </Text>
-            </View>
+              <View style={styles.quizButtonContent}>
+                <View style={styles.quizButtonLeft}>
+                  <Text style={styles.quizIcon}>🎮</Text>
+                  <View style={styles.quizTextContainer}>
+                    <View style={styles.quizTitleRow}>
+                      <Text style={[styles.quizTitle, { color: colors.text }]}>
+                        Tester mes connaissances
+                      </Text>
+                      {quizPassed && (
+                        <Text style={styles.quizPassedBadge}>✓</Text>
+                      )}
+                    </View>
+                    <Text style={[styles.quizSubtext, { color: colors.textTertiary }]}>
+                      {getQuizSubtext()}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={[styles.quizArrow, { color: colors.textTertiary }]}>→</Text>
+              </View>
+            </Pressable>
           )}
           
+          {/* Complete Button */}
           <Button 
             onPress={handleComplete} 
             style={isCompleting || isCompleted ? { opacity: 0.7 } : undefined}
@@ -351,6 +327,15 @@ export default function LessonScreen() {
             </Text>
           </Button>
         </Animated.View>
+
+        {/* Toast XP */}
+        <Toast
+          visible={showXPToast}
+          title="Bravo !"
+          message={`+${xpEarned} XP gagnés !`}
+          type="success"
+          onHide={() => setShowXPToast(false)}
+        />
       </SafeAreaView>
     </GradientBackground>
   );
@@ -362,11 +347,11 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingTop: 12,
+    paddingBottom: 20,
   },
   backButton: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   backText: {
     fontSize: 14,
@@ -374,58 +359,60 @@ const styles = StyleSheet.create({
   conceptHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    marginBottom: 20,
+    gap: 14,
+    marginBottom: 16,
   },
   conceptIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
   },
   conceptIconText: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
-    color: '#8b5cf6',
   },
   conceptInfo: {
     flex: 1,
   },
   conceptName: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   conceptDescription: {
     fontSize: 14,
   },
   progressDots: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
     justifyContent: 'center',
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  contentContainer: {
+    flex: 1,
+    position: 'relative',
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingBottom: 200, // Augmenté pour laisser de l'espace pour les boutons
   },
   introduction: {
-    fontSize: 18,
-    lineHeight: 28,
-    marginBottom: 32,
+    fontSize: 17,
+    lineHeight: 26,
+    marginBottom: 28,
     fontWeight: '300',
   },
   sectionWrapper: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   sectionCard: {
-    borderRadius: 20,
+    borderRadius: 18,
     overflow: 'hidden',
     borderWidth: 1,
   },
@@ -433,98 +420,95 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   sectionContent: {
-    padding: 20,
+    padding: 18,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   sectionText: {
     fontSize: 15,
-    lineHeight: 24,
+    lineHeight: 23,
   },
   summaryWrapper: {
-    marginTop: 32,
+    marginTop: 28,
     marginBottom: 16,
   },
   summaryCard: {
-    borderRadius: 20,
+    borderRadius: 18,
     overflow: 'hidden',
     borderWidth: 2,
   },
   summaryContent: {
-    padding: 24,
+    padding: 22,
   },
   summaryLabel: {
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1.5,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   summaryText: {
-    fontSize: 16,
-    lineHeight: 26,
+    fontSize: 15,
+    lineHeight: 24,
     fontWeight: '300',
   },
-  quizStatsWrapper: {
-    marginTop: 16,
-    marginBottom: 16,
-  },
-  quizStatsCard: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-  },
-  quizStatsContent: {
-    padding: 20,
-  },
-  quizStatsLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    marginBottom: 16,
-  },
-  quizStatsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  quizStat: {
-    alignItems: 'center',
-  },
-  quizStatValue: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  quizStatLabel: {
-    fontSize: 11,
-  },
-  footerShadow: {
+  fadeGradient: {
     position: 'absolute',
-    bottom: 140,
+    bottom: 0,
     left: 0,
     right: 0,
-    height: 40,
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: -10 },
-    elevation: 10,
+    height: 160,
   },
   footer: {
     paddingHorizontal: 24,
     paddingBottom: 24,
-    paddingTop: 16,
+    paddingTop: 12,
+    gap: 10,
   },
-  perfectScoreBadge: {
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 16,
-    borderWidth: 2,
+  
+  // Quiz Button with stats
+  quizButton: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+  },
+  quizButtonContent: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  perfectScoreText: {
+  quizButtonLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  quizIcon: {
+    fontSize: 26,
+  },
+  quizTextContainer: {
+    flex: 1,
+  },
+  quizTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  quizTitle: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  quizPassedBadge: {
+    fontSize: 13,
+    color: '#10b981',
+  },
+  quizSubtext: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  quizArrow: {
+    fontSize: 16,
   },
 });
