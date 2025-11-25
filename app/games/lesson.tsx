@@ -6,8 +6,8 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeIn, FadeInDown, FadeInRight } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/ui/Button';
 import { GradientBackground } from '../../components/ui/GradientBackground';
@@ -19,6 +19,82 @@ import { hasQuiz } from '../../lib/data/clank-quizzes';
 import { useCompleteLesson } from '../../lib/hooks/useGame';
 import { haptics } from '../../lib/services/haptics';
 import { quizHistoryService } from '../../lib/services/quiz-history';
+
+interface VideoPlayerProps {
+  videoUrl?: string;
+  altText?: string;
+}
+
+function VideoPlayer({ videoUrl, altText }: VideoPlayerProps) {
+  const { colors } = useTheme();
+
+  const getYouTubeThumbnail = (url?: string) => {
+    if (!url) return null;
+    const videoIdMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
+    if (videoIdMatch) {
+      return `https://img.youtube.com/vi/${videoIdMatch[1]}/maxresdefault.jpg`;
+    }
+    return null;
+  };
+
+  const thumbnailUrl = getYouTubeThumbnail(videoUrl);
+
+  const handlePlayPress = async () => {
+    if (videoUrl) {
+      await Linking.openURL(videoUrl);
+    }
+  };
+
+  if (!videoUrl) {
+    return (
+      <View style={[styles.videoPlaceholder, { borderColor: colors.cardBorder }]}>
+        <Text style={styles.videoIcon}>🎬</Text>
+        <Text style={[styles.placeholderText, { color: colors.textTertiary }]}>
+          Vidéo à ajouter
+        </Text>
+      </View>
+    );
+  }
+
+return (
+  <View style={styles.videoContainer}>
+    {thumbnailUrl ? (
+      <Pressable onPress={handlePlayPress} style={styles.thumbnailContainer}>
+        <Image
+          source={{ uri: thumbnailUrl }}
+          style={styles.videoThumbnail}
+          resizeMode="cover"
+        />
+        <View style={styles.playOverlay}>
+          <View style={styles.playButton}>
+            <Image
+              source={require('../../assets/images/icones/youtube.png')}
+              style={styles.youtubeIcon}
+              resizeMode="contain"
+            />
+          </View>
+        </View>
+        {altText && (
+          <View style={[styles.videoLabel, { backgroundColor: colors.background + 'E6' }]}>
+            <Text style={[styles.videoLabelText, { color: colors.text }]}>
+              {altText}
+            </Text>
+          </View>
+        )}
+      </Pressable>
+    ) : (
+      <Pressable onPress={handlePlayPress} style={styles.thumbnailContainer}>
+        <View style={[styles.videoPlaceholder, { borderColor: colors.cardBorder }]}>
+          <Text style={styles.videoIcon}>🎬</Text>
+          <Text style={[styles.placeholderText, { color: colors.textTertiary }]}>
+            Ouvrir la vidéo
+          </Text>
+        </View>
+      </Pressable>
+    )}
+  </View>
+);
+}
 
 export default function LessonScreen() {
   const router = useRouter();
@@ -117,118 +193,103 @@ export default function LessonScreen() {
       // ========================================
       // TYPE: IMAGE
       // ========================================
-      case 'image':
-        return (
-          <Animated.View
-            key={index}
-            entering={FadeInDown.duration(400).delay(animationDelay)}
-            style={styles.sectionWrapper}
-          >
-            <View style={[styles.sectionCard, { borderColor: colors.cardBorder }]}>
-              <BlurView intensity={20} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.blur}>
-                <LinearGradient
-                  colors={
-                    theme === 'dark'
-                      ? (['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)'] as const)
-                      : (['rgba(0, 0, 0, 0.03)', 'rgba(0, 0, 0, 0.01)'] as const)
-                  }
-                  style={styles.sectionContent}
-                >
-                  {section.title && (
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                      {section.title}
-                    </Text>
-                  )}
-                  {section.content && (
-                    <Text style={[styles.sectionText, { color: colors.textSecondary, marginBottom: 16 }]}>
-                      {section.content}
-                    </Text>
-                  )}
-                  <View style={[styles.imageContainer, { borderColor: colors.cardBorder }]}>
-                    {section.imageUrl ? (
-                      <Image
-                        source={
-                          typeof section.imageUrl === 'string'
-                            ? { uri: section.imageUrl }
-                            : section.imageUrl
-                        }
-                        style={styles.image}
-                        resizeMode="contain"
-                        accessibilityLabel={section.altText}
-                      />
-                    ) : (
-                      <View style={[styles.imagePlaceholder, { backgroundColor: colors.cardBackground }]}>
-                        <Text style={[styles.placeholderText, { color: colors.textTertiary }]}>
-                          🖼️ Image à ajouter
-                        </Text>
-                        {section.altText && (
-                          <Text style={[styles.placeholderAlt, { color: colors.textTertiary }]}>
-                            {section.altText}
-                          </Text>
-                        )}
-                      </View>
-                    )}
-                  </View>
-                  {section.altText && section.imageUrl && (
-                    <Text style={[styles.imageCaption, { color: colors.textTertiary }]}>
-                      {section.altText}
-                    </Text>
-                  )}
-                </LinearGradient>
-              </BlurView>
-            </View>
-          </Animated.View>
-        );
+case 'image':
+  return (
+    <View key={index} style={{ marginBottom: 24 }}>
+      {section.title && (
+        <Text style={[styles.sectionTitle, { color: colors.text, paddingHorizontal: 24 }]}>
+          {section.title}
+        </Text>
+      )}
+      {section.content && (
+        <Text style={[styles.sectionText, { color: colors.textSecondary, paddingHorizontal: 24, marginBottom: 16 }]}>
+          {section.content}
+        </Text>
+      )}
+      
+      {/* Image débordante - Sort du padding du ScrollView */}
+      <Animated.View 
+        entering={FadeInRight.duration(600).delay(animationDelay + 200)}
+        style={{
+          width: '100%',
+          height: 250,
+          marginLeft: 24,
+          marginRight: 0,
+          marginVertical: 8,
+          borderTopLeftRadius: 20,
+          borderBottomLeftRadius: 20,
+          overflow: 'hidden',
+        }}
+      >
+        {section.imageUrl ? (
+          <Image
+            source={
+              typeof section.imageUrl === 'string'
+                ? { uri: section.imageUrl }
+                : section.imageUrl
+            }
+            style={styles.imageFull}
+            resizeMode="cover"
+            accessibilityLabel={section.altText}
+          />
+        ) : (
+          <View style={[styles.imagePlaceholder, { backgroundColor: colors.cardBackground }]}>
+            <Text style={[styles.placeholderText, { color: colors.textTertiary }]}>
+              🖼️ Image à ajouter
+            </Text>
+          </View>
+        )}
+      </Animated.View>
+      
+      {/* Légende */}
+      {section.altText && section.imageUrl && (
+        <Text style={[styles.imageCaption, { color: colors.textTertiary, paddingHorizontal: 24, marginTop: 12 }]}>
+          {section.altText}
+        </Text>
+      )}
+    </View>
+  );
 
       // ========================================
       // TYPE: VIDEO
       // ========================================
-      case 'video':
-        return (
-          <Animated.View
-            key={index}
-            entering={FadeInDown.duration(400).delay(animationDelay)}
-            style={styles.sectionWrapper}
+case 'video':
+  return (
+    <Animated.View
+      key={index}
+      entering={FadeInDown.duration(400).delay(animationDelay)}
+      style={styles.sectionWrapper}
+    >
+      <View style={[styles.sectionCard, { borderColor: colors.cardBorder }]}>
+        <BlurView intensity={20} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.blur}>
+          <LinearGradient
+            colors={
+              theme === 'dark'
+                ? (['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)'] as const)
+                : (['rgba(0, 0, 0, 0.03)', 'rgba(0, 0, 0, 0.01)'] as const)
+            }
+            style={styles.sectionContent}
           >
-            <View style={[styles.sectionCard, { borderColor: colors.cardBorder }]}>
-              <BlurView intensity={20} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.blur}>
-                <LinearGradient
-                  colors={
-                    theme === 'dark'
-                      ? (['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)'] as const)
-                      : (['rgba(0, 0, 0, 0.03)', 'rgba(0, 0, 0, 0.01)'] as const)
-                  }
-                  style={styles.sectionContent}
-                >
-                  {section.title && (
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                      {section.title}
-                    </Text>
-                  )}
-                  {section.content && (
-                    <Text style={[styles.sectionText, { color: colors.textSecondary, marginBottom: 16 }]}>
-                      {section.content}
-                    </Text>
-                  )}
-                  <View style={[styles.videoPlaceholder, { borderColor: colors.primary + '40' }]}>
-                    <Text style={styles.videoIcon}>🎬</Text>
-                    <Text style={[styles.videoText, { color: colors.text }]}>
-                      Vidéo : {section.altText || 'Contenu vidéo'}
-                    </Text>
-                    {section.videoUrl && (
-                      <Text style={[styles.videoUrl, { color: colors.textTertiary }]}>
-                        {section.videoUrl}
-                      </Text>
-                    )}
-                    <Text style={[styles.videoNote, { color: colors.textTertiary }]}>
-                      (Support vidéo à implémenter avec expo-av)
-                    </Text>
-                  </View>
-                </LinearGradient>
-              </BlurView>
-            </View>
-          </Animated.View>
-        );
+            {section.title && (
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                {section.title}
+              </Text>
+            )}
+            {section.content && (
+              <Text style={[styles.sectionText, { color: colors.textSecondary, marginBottom: 16 }]}>
+                {section.content}
+              </Text>
+            )}
+            
+            <VideoPlayer 
+              videoUrl={section.videoUrl} 
+              altText={section.altText}
+            />
+          </LinearGradient>
+        </BlurView>
+      </View>
+    </Animated.View>
+  );
 
       // ========================================
       // TYPE: TIP
@@ -319,29 +380,16 @@ export default function LessonScreen() {
           <Animated.View
             key={index}
             entering={FadeInDown.duration(400).delay(animationDelay)}
-            style={styles.sectionWrapper}
+            style={styles.sectionWrapperSimple}
           >
-            <View style={[styles.sectionCard, { borderColor: colors.cardBorder }]}>
-              <BlurView intensity={20} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.blur}>
-                <LinearGradient
-                  colors={
-                    theme === 'dark'
-                      ? (['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)'] as const)
-                      : (['rgba(0, 0, 0, 0.03)', 'rgba(0, 0, 0, 0.01)'] as const)
-                  }
-                  style={styles.sectionContent}
-                >
-                  {section.title && (
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                      {section.title}
-                    </Text>
-                  )}
-                  <Text style={[styles.sectionText, { color: colors.textSecondary }]}>
-                    {section.content}
-                  </Text>
-                </LinearGradient>
-              </BlurView>
-            </View>
+            {section.title && (
+              <Text style={[styles.sectionTitleSimple, { color: colors.text }]}>
+                {section.title}
+              </Text>
+            )}
+            <Text style={[styles.sectionTextSimple, { color: colors.textSecondary }]}>
+              {section.content}
+            </Text>
           </Animated.View>
         );
     }
@@ -682,21 +730,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   imageCaption: {
-    fontSize: 13,
+    fontSize: 12,
     marginTop: 12,
     fontStyle: 'italic',
     textAlign: 'center',
   },
 
   // Video styles
-  videoPlaceholder: {
-    borderRadius: 16,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    padding: 24,
-    alignItems: 'center',
-    backgroundColor: 'rgba(139, 92, 246, 0.05)',
-  },
   videoIcon: {
     fontSize: 48,
     marginBottom: 12,
@@ -792,4 +832,121 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+imageSection: {
+  gap: 12,
+},
+videoButton: {
+  borderRadius: 16,
+  borderWidth: 2,
+  overflow: 'hidden',
+},
+videoButtonContent: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  padding: 20,
+  gap: 16,
+},
+playIconContainer: {
+  width: 56,
+  height: 56,
+  borderRadius: 28,
+  backgroundColor: '#ff0000',
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+playIcon: {
+  fontSize: 24,
+},
+videoButtonText: {
+  flex: 1,
+},
+videoButtonTitle: {
+  fontSize: 16,
+  fontWeight: '700',
+  marginBottom: 4,
+},
+videoButtonSubtitle: {
+  fontSize: 13,
+},
+sectionWrapperImage: {
+  marginBottom: 24,
+},
+imageContainerFull: {
+  width: '100%',
+  height: 250,
+  marginRight: -24,
+  marginVertical: 8,
+  overflow: 'hidden',
+},
+imageFull: {
+  width: '100%',
+  height: '100%',
+},
+videoContainer: {
+  width: '100%',
+  height: 220,
+  borderRadius: 12,
+  overflow: 'hidden',
+  backgroundColor: '#000',
+},
+thumbnailContainer: {
+  width: '100%',
+  height: '100%',
+  position: 'relative',
+},
+videoThumbnail: {
+  width: '100%',
+  height: '100%',
+},
+playOverlay: {
+  ...StyleSheet.absoluteFillObject,
+  justifyContent: 'center',
+  alignItems: 'center',
+  backgroundColor: 'rgba(0, 0, 0, 0.3)',
+},
+playButton: {
+
+},
+videoLabel: {
+  position: 'absolute',
+  bottom: 0,
+  left: 0,
+  right: 0,
+  padding: 10,
+},
+videoLabelText: {
+  fontSize: 12,
+  fontWeight: '500',
+},
+youtubeIcon: {
+  width: 80,
+  height: 80,
+  opacity: 0.5,
+  tintColor: '#ffffff',
+},
+video: {
+  width: '100%',
+  height: '100%',
+},
+videoPlaceholder: {
+  height: 200,
+  borderRadius: 12,
+  borderWidth: 2,
+  borderStyle: 'dashed',
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+sectionWrapperSimple: {
+  marginBottom: 24,
+  paddingHorizontal: 24,
+},
+sectionTitleSimple: {
+  fontSize: 20,
+  fontWeight: '700',
+  marginBottom: 12,
+},
+sectionTextSimple: {
+  fontSize: 15,
+  lineHeight: 24,
+},
 });

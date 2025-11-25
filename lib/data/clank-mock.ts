@@ -86,6 +86,20 @@ export const CLANK_GAME: Game = {
             content: "Ton but est simple : descendre dans le donjon, voler un artefact précieux, et ressortir vivant avec le maximum de points. Mais attention, plus tu fais de bruit (Clank!), plus tu risques de réveiller le dragon !"
           },
           {
+            type: 'image',
+            title: 'Le plateau de jeu',
+            content: 'Voici à quoi ressemble le donjon de Clank! Tu commences en haut (entrée du château) et tu descends vers les Profondeurs où se trouvent les artefacts les plus précieux.',
+            imageUrl: 'https://data.depuncheur.fr/review/1200/clank-les-aventuriers-du-deckbuilding.jpg',
+            altText: 'Vue d\'ensemble du plateau de Clank! montrant le donjon avec ses tunnels et salles'
+          },
+          {
+            type: 'video',
+            title: 'Tutoriel vidéo - Vue d\'ensemble',
+            content: 'Regarde cette courte vidéo pour mieux visualiser comment se déroule une partie de Clank!',
+            videoUrl: 'https://www.youtube.com/watch?v=tnmTeD1joKg',
+            altText: 'Vidéo explicative du déroulement d\'une partie'
+          },
+          {
             type: 'tip',
             content: "💡 Le gagnant est celui qui a le plus de points À CONDITION d'être sorti vivant du donjon. Si tu meurs à l'intérieur, tu ne peux pas gagner !"
           },
