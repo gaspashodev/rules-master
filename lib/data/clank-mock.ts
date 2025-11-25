@@ -26,37 +26,21 @@ export interface Concept {
   };
 }
 
-export interface RulesVideo {
-  id: string;
-  title: string;
-  url: string;
-  duration: string;
-  language: 'fr' | 'en';
-  channel: string;
-  thumbnailUrl?: string;
-}
-
 export interface Game {
   id: string;
   name: string;
   icon: string;
   description: string;
   difficulty: 'beginner' | 'intermediate' | 'expert';
+  playerCount: string;
+  playTime: string;
   
-  // Image de couverture
-  coverImageUrl: string;
-  
-  // Infos essentielles
-  playerCount: { min: number; max: number };
-  playTime: { min: number; max: number };
-  minAge: number;
-  
-  // Ressources externes
-  rulesPdfUrl?: string;
-  rulesVideos: RulesVideo[];
-  boardGameGeekId?: number;
-  boardGameGeekRating?: number;
-  boardGameGeekUrl?: string;
+  // ✨ NOUVEAUX CHAMPS
+  age: number;                    // Âge minimum
+  bggRating: number;              // Note BoardGameGeek (ex: 7.8)
+  rulesUrl: string;               // Lien PDF des règles
+  videoUrls: string[];            // Liens YouTube des vidéos
+  coverImageUrl: string;          // URL de l'image de couverture
   
   concepts: Concept[];
 }
@@ -67,46 +51,18 @@ export const CLANK_GAME: Game = {
   icon: '🐉',
   description: 'Les Aventuriers du Deck-building',
   difficulty: 'intermediate',
+  playerCount: '2-4 joueurs',
+  playTime: '45-60 min',
   
-  coverImageUrl: 'https://cf.geekdo-images.com/DPmSsxU41PgVmkn5Tsz3KQ__imagepage/img/_d9cxqRZGJhxv9wNh0e_3SDPM8k=/fit-in/900x600/filters:no_upscale():strip_icc()/pic2920660.jpg',
-  
-  playerCount: { min: 2, max: 4 },
-  playTime: { min: 30, max: 60 },
-  minAge: 12,
-  
-  rulesPdfUrl: 'https://cdn.1j1ju.com/medias/a6/4c/96-clank-les-aventuriers-du-deck-building-regle.pdf',
-  rulesVideos: [
-    {
-      id: 'video-1',
-      title: 'Clank! - Règles du jeu',
-      url: 'https://www.youtube.com/watch?v=vMHAR3GFDwA',
-      duration: '16:42',
-      language: 'fr',
-      channel: 'Ludochrono',
-      thumbnailUrl: 'https://img.youtube.com/vi/vMHAR3GFDwA/hqdefault.jpg',
-    },
-    {
-      id: 'video-2',
-      title: 'Clank! - Comment jouer',
-      url: 'https://www.youtube.com/watch?v=vkK3_1IxfQk',
-      duration: '14:28',
-      language: 'fr',
-      channel: 'Videoregle',
-      thumbnailUrl: 'https://img.youtube.com/vi/vkK3_1IxfQk/hqdefault.jpg',
-    },
-    {
-      id: 'video-3',
-      title: 'Clank! - Review & Tutorial',
-      url: 'https://www.youtube.com/watch?v=gNiOi4T-HWQ',
-      duration: '18:55',
-      language: 'en',
-      channel: 'Watch It Played',
-      thumbnailUrl: 'https://img.youtube.com/vi/gNiOi4T-HWQ/hqdefault.jpg',
-    },
+  // ✨ NOUVELLES VALEURS
+  age: 12,
+  bggRating: 7.8,
+  rulesUrl: 'https://cdn.1j1ju.com/medias/a6/4c/96-clank-les-aventuriers-du-deck-building-regle.pdf',
+  videoUrls: [
+    'https://www.youtube.com/watch?v=VIDEO_ID_1',
+    'https://www.youtube.com/watch?v=VIDEO_ID_2',
   ],
-  boardGameGeekId: 201808,
-  boardGameGeekRating: 7.7,
-  boardGameGeekUrl: 'https://boardgamegeek.com/boardgame/201808/clank-a-deck-building-adventure',
+  coverImageUrl: 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1722870/capsule_616x353.jpg',
 
   concepts: [
     // ========================================

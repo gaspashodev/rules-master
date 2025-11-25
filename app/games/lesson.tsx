@@ -1,17 +1,17 @@
 // app/games/lesson.tsx
-// VERSION FINALE - Avec stats tentatives quiz
+// VERSION AVEC SUPPORT IMAGES/VIDÉOS - Switch complet
 
 import { useFocusEffect } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/ui/Button';
 import { GradientBackground } from '../../components/ui/GradientBackground';
-import { Toast } from '../../components/ui/Toast';
+import { useToast } from '../../components/ui/Toast';
 import { useTheme } from '../../lib/contexts/ThemeContext';
 import type { LessonSection } from '../../lib/data/clank-mock';
 import { CLANK_GAME } from '../../lib/data/clank-mock';
@@ -26,43 +26,43 @@ export default function LessonScreen() {
   const { conceptId } = useLocalSearchParams<{ conceptId: string }>();
   const [isCompleted, setIsCompleted] = useState(false);
   const [xpEarned, setXpEarned] = useState(0);
-  const [showXPToast, setShowXPToast] = useState(false);
   const { completeLesson, isCompleting } = useCompleteLesson();
+  const { toast, showXP, ToastComponent } = useToast();
 
-  // Stats quiz - tentatives
-  const [quizBestScore, setQuizBestScore] = useState<number | null>(null);
-  const [quizAttempts, setQuizAttempts] = useState(0);
-  const [quizPassed, setQuizPassed] = useState(false);
+  // Quiz stats
+  const [quizStats, setQuizStats] = useState<{
+    attempts: number;
+    bestScore: number;
+    passed: boolean;
+  } | null>(null);
 
   const concept = CLANK_GAME.concepts.find((c) => c.id === conceptId);
   const quizAvailable = conceptId ? hasQuiz(conceptId) : false;
 
-  // Charger les stats quiz au focus
+  // Charger les stats du quiz (avec rafraîchissement au focus)
   useFocusEffect(
     useCallback(() => {
-      if (conceptId) {
-        loadQuizStats();
-      }
-    }, [conceptId])
-  );
+      const loadQuizStats = async () => {
+        if (!conceptId || !quizAvailable) return;
 
-  const loadQuizStats = async () => {
-    if (!conceptId) return;
-    
-    try {
-      const [bestScore, attempts, passed] = await Promise.all([
-        quizHistoryService.getBestScore(conceptId),
-        quizHistoryService.getAttemptCount(conceptId),
-        quizHistoryService.hasPassedQuiz(conceptId),
-      ]);
-      
-      setQuizBestScore(bestScore?.percentage ?? null);
-      setQuizAttempts(attempts);
-      setQuizPassed(passed);
-    } catch (error) {
-      // Silencieux
-    }
-  };
+        try {
+          const attempts = await quizHistoryService.getAttemptCount(conceptId);
+          const bestResult = await quizHistoryService.getBestScore(conceptId);
+          const passed = await quizHistoryService.hasPassedQuiz(conceptId);
+
+          setQuizStats({
+            attempts,
+            bestScore: bestResult?.percentage || 0,
+            passed,
+          });
+        } catch (error) {
+          console.error('Error loading quiz stats:', error);
+        }
+      };
+
+      loadQuizStats();
+    }, [conceptId, quizAvailable])
+  );
 
   if (!concept) {
     return (
@@ -78,26 +78,24 @@ export default function LessonScreen() {
   }
 
   const handleComplete = async () => {
-    haptics.medium();
-    
     try {
+      haptics.medium();
       const result = await completeLesson(CLANK_GAME.id, conceptId);
-      
+
       if (result) {
         setIsCompleted(true);
         setXpEarned(result.completion.xpEarned);
         
-        if (result.completion.xpEarned > 0) {
-          haptics.success();
-          setShowXPToast(true);
-        }
-        
+        // Célébration !
+        haptics.success();
+        showXP(result.completion.xpEarned);
+
         setTimeout(() => {
           router.back();
         }, 1500);
       }
     } catch (error) {
-      // Silencieux
+      // Erreur silencieuse
     }
   };
 
@@ -109,87 +107,278 @@ export default function LessonScreen() {
     });
   };
 
-  const handleBack = () => {
-    haptics.light();
-    router.back();
-  };
-
+  // ========================================
+  // RENDER SECTION - SWITCH COMPLET
+  // ========================================
   const renderSection = (section: LessonSection, index: number) => {
-    const getSectionStyle = () => {
-      switch (section.type) {
-        case 'tip':
-          return { borderLeftColor: colors.primary, borderLeftWidth: 3 };
-        case 'example':
-          return { borderLeftColor: colors.success, borderLeftWidth: 3 };
-        default:
-          return null;
-      }
-    };
+    const animationDelay = 100 * (index + 1);
 
-    return (
-      <Animated.View
-        key={index}
-        entering={FadeInDown.duration(400).delay(100 * (index + 1))}
-        style={styles.sectionWrapper}
-      >
-        <View
-          style={[
-            styles.sectionCard,
-            { borderColor: colors.cardBorder },
-            getSectionStyle(),
-          ]}
-        >
-          <BlurView intensity={20} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.blur}>
-            <LinearGradient
-              colors={
-                theme === 'dark'
-                  ? (['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)'] as const)
-                  : (['rgba(0, 0, 0, 0.03)', 'rgba(0, 0, 0, 0.01)'] as const)
-              }
-              style={styles.sectionContent}
+    switch (section.type) {
+      // ========================================
+      // TYPE: IMAGE
+      // ========================================
+      case 'image':
+        return (
+          <Animated.View
+            key={index}
+            entering={FadeInDown.duration(400).delay(animationDelay)}
+            style={styles.sectionWrapper}
+          >
+            <View style={[styles.sectionCard, { borderColor: colors.cardBorder }]}>
+              <BlurView intensity={20} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.blur}>
+                <LinearGradient
+                  colors={
+                    theme === 'dark'
+                      ? (['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)'] as const)
+                      : (['rgba(0, 0, 0, 0.03)', 'rgba(0, 0, 0, 0.01)'] as const)
+                  }
+                  style={styles.sectionContent}
+                >
+                  {section.title && (
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                      {section.title}
+                    </Text>
+                  )}
+                  {section.content && (
+                    <Text style={[styles.sectionText, { color: colors.textSecondary, marginBottom: 16 }]}>
+                      {section.content}
+                    </Text>
+                  )}
+                  <View style={[styles.imageContainer, { borderColor: colors.cardBorder }]}>
+                    {section.imageUrl ? (
+                      <Image
+                        source={
+                          typeof section.imageUrl === 'string'
+                            ? { uri: section.imageUrl }
+                            : section.imageUrl
+                        }
+                        style={styles.image}
+                        resizeMode="contain"
+                        accessibilityLabel={section.altText}
+                      />
+                    ) : (
+                      <View style={[styles.imagePlaceholder, { backgroundColor: colors.cardBackground }]}>
+                        <Text style={[styles.placeholderText, { color: colors.textTertiary }]}>
+                          🖼️ Image à ajouter
+                        </Text>
+                        {section.altText && (
+                          <Text style={[styles.placeholderAlt, { color: colors.textTertiary }]}>
+                            {section.altText}
+                          </Text>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                  {section.altText && section.imageUrl && (
+                    <Text style={[styles.imageCaption, { color: colors.textTertiary }]}>
+                      {section.altText}
+                    </Text>
+                  )}
+                </LinearGradient>
+              </BlurView>
+            </View>
+          </Animated.View>
+        );
+
+      // ========================================
+      // TYPE: VIDEO
+      // ========================================
+      case 'video':
+        return (
+          <Animated.View
+            key={index}
+            entering={FadeInDown.duration(400).delay(animationDelay)}
+            style={styles.sectionWrapper}
+          >
+            <View style={[styles.sectionCard, { borderColor: colors.cardBorder }]}>
+              <BlurView intensity={20} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.blur}>
+                <LinearGradient
+                  colors={
+                    theme === 'dark'
+                      ? (['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)'] as const)
+                      : (['rgba(0, 0, 0, 0.03)', 'rgba(0, 0, 0, 0.01)'] as const)
+                  }
+                  style={styles.sectionContent}
+                >
+                  {section.title && (
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                      {section.title}
+                    </Text>
+                  )}
+                  {section.content && (
+                    <Text style={[styles.sectionText, { color: colors.textSecondary, marginBottom: 16 }]}>
+                      {section.content}
+                    </Text>
+                  )}
+                  <View style={[styles.videoPlaceholder, { borderColor: colors.primary + '40' }]}>
+                    <Text style={styles.videoIcon}>🎬</Text>
+                    <Text style={[styles.videoText, { color: colors.text }]}>
+                      Vidéo : {section.altText || 'Contenu vidéo'}
+                    </Text>
+                    {section.videoUrl && (
+                      <Text style={[styles.videoUrl, { color: colors.textTertiary }]}>
+                        {section.videoUrl}
+                      </Text>
+                    )}
+                    <Text style={[styles.videoNote, { color: colors.textTertiary }]}>
+                      (Support vidéo à implémenter avec expo-av)
+                    </Text>
+                  </View>
+                </LinearGradient>
+              </BlurView>
+            </View>
+          </Animated.View>
+        );
+
+      // ========================================
+      // TYPE: TIP
+      // ========================================
+      case 'tip':
+        return (
+          <Animated.View
+            key={index}
+            entering={FadeInDown.duration(400).delay(animationDelay)}
+            style={styles.sectionWrapper}
+          >
+            <View
+              style={[
+                styles.sectionCard,
+                { borderColor: colors.cardBorder },
+                { borderLeftColor: colors.primary, borderLeftWidth: 3 },
+              ]}
             >
-              {section.title && (
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                  {section.title}
-                </Text>
-              )}
-              <Text style={[styles.sectionText, { color: colors.textSecondary }]}>
-                {section.content}
-              </Text>
-            </LinearGradient>
-          </BlurView>
-        </View>
-      </Animated.View>
-    );
+              <BlurView intensity={20} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.blur}>
+                <LinearGradient
+                  colors={
+                    theme === 'dark'
+                      ? (['rgba(139, 92, 246, 0.08)', 'rgba(139, 92, 246, 0.02)'] as const)
+                      : (['rgba(139, 92, 246, 0.05)', 'rgba(139, 92, 246, 0.01)'] as const)
+                  }
+                  style={styles.sectionContent}
+                >
+                  {section.title && (
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                      {section.title}
+                    </Text>
+                  )}
+                  <Text style={[styles.sectionText, { color: colors.textSecondary }]}>
+                    {section.content}
+                  </Text>
+                </LinearGradient>
+              </BlurView>
+            </View>
+          </Animated.View>
+        );
+
+      // ========================================
+      // TYPE: EXAMPLE
+      // ========================================
+      case 'example':
+        return (
+          <Animated.View
+            key={index}
+            entering={FadeInDown.duration(400).delay(animationDelay)}
+            style={styles.sectionWrapper}
+          >
+            <View
+              style={[
+                styles.sectionCard,
+                { borderColor: colors.cardBorder },
+                { borderLeftColor: colors.success, borderLeftWidth: 3 },
+              ]}
+            >
+              <BlurView intensity={20} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.blur}>
+                <LinearGradient
+                  colors={
+                    theme === 'dark'
+                      ? (['rgba(16, 185, 129, 0.08)', 'rgba(16, 185, 129, 0.02)'] as const)
+                      : (['rgba(16, 185, 129, 0.05)', 'rgba(16, 185, 129, 0.01)'] as const)
+                  }
+                  style={styles.sectionContent}
+                >
+                  {section.title && (
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                      {section.title}
+                    </Text>
+                  )}
+                  <Text style={[styles.sectionText, { color: colors.textSecondary }]}>
+                    {section.content}
+                  </Text>
+                </LinearGradient>
+              </BlurView>
+            </View>
+          </Animated.View>
+        );
+
+      // ========================================
+      // TYPE: TEXT (default)
+      // ========================================
+      case 'text':
+      default:
+        return (
+          <Animated.View
+            key={index}
+            entering={FadeInDown.duration(400).delay(animationDelay)}
+            style={styles.sectionWrapper}
+          >
+            <View style={[styles.sectionCard, { borderColor: colors.cardBorder }]}>
+              <BlurView intensity={20} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.blur}>
+                <LinearGradient
+                  colors={
+                    theme === 'dark'
+                      ? (['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)'] as const)
+                      : (['rgba(0, 0, 0, 0.03)', 'rgba(0, 0, 0, 0.01)'] as const)
+                  }
+                  style={styles.sectionContent}
+                >
+                  {section.title && (
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                      {section.title}
+                    </Text>
+                  )}
+                  <Text style={[styles.sectionText, { color: colors.textSecondary }]}>
+                    {section.content}
+                  </Text>
+                </LinearGradient>
+              </BlurView>
+            </View>
+          </Animated.View>
+        );
+    }
   };
 
   const getCompleteButtonText = () => {
-    if (isCompleted) return `✓ +${xpEarned} XP`;
-    if (isCompleting) return 'Enregistrement...';
+    if (isCompleted) {
+      return `✓ +${xpEarned} XP`;
+    }
+    if (isCompleting) {
+      return 'Enregistrement...';
+    }
     return 'Marquer comme terminé';
   };
 
-  // Construire le sous-texte du bouton quiz avec tentatives
-  const getQuizSubtext = () => {
-    if (quizAttempts === 0) {
-      return 'Pas encore tenté';
+  const getQuizButtonText = () => {
+    if (!quizStats || quizStats.attempts === 0) {
+      return '🎮 Tester mes connaissances';
     }
-    
-    const parts = [];
-    if (quizBestScore !== null) {
-      parts.push(`Meilleur : ${quizBestScore}%`);
-    }
-    parts.push(`${quizAttempts} tentative${quizAttempts > 1 ? 's' : ''}`);
-    
-    return parts.join(' · ');
+    return `🔄 Retenter le quiz (Meilleur: ${quizStats.bestScore}%)`;
   };
+
+  // Vérifier si score parfait au quiz
+  const hasPerfectScore = quizStats?.bestScore === 100;
 
   return (
     <GradientBackground>
+      {/* Toast pour les notifications */}
+      <ToastComponent />
+      
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
         <Animated.View entering={FadeIn.duration(400)} style={styles.header}>
-          <Pressable onPress={handleBack} style={styles.backButton}>
+          <Pressable onPress={() => {
+            haptics.light();
+            router.back();
+          }} style={styles.backButton}>
             <Text style={[styles.backText, { color: colors.textSecondary }]}>← Retour</Text>
           </Pressable>
 
@@ -200,7 +389,7 @@ export default function LessonScreen() {
                 { backgroundColor: colors.difficultyBg, borderColor: colors.difficultyBorder },
               ]}
             >
-              <Text style={[styles.conceptIconText, { color: colors.primary }]}>{concept.order}</Text>
+              <Text style={styles.conceptIconText}>{concept.order}</Text>
             </View>
             <View style={styles.conceptInfo}>
               <Text style={[styles.conceptName, { color: colors.text }]}>{concept.name}</Text>
@@ -216,14 +405,17 @@ export default function LessonScreen() {
                 key={i}
                 style={[
                   styles.dot,
-                  { backgroundColor: i === 0 ? colors.primary : 'rgba(255, 255, 255, 0.2)' },
+                  {
+                    backgroundColor:
+                      i === 0 ? colors.primary : 'rgba(255, 255, 255, 0.2)',
+                  },
                 ]}
               />
             ))}
           </View>
         </Animated.View>
 
-        {/* Content */}
+        {/* Lesson Content */}
         <View style={styles.contentContainer}>
           <ScrollView
             contentContainerStyle={styles.scrollContent}
@@ -265,61 +457,99 @@ export default function LessonScreen() {
               </View>
             </Animated.View>
 
-            <View style={{ height: 200 }} />
-          </ScrollView>
+            {/* Quiz Stats (si quiz disponible et déjà tenté) */}
+            {quizAvailable && quizStats && quizStats.attempts > 0 && (
+              <Animated.View
+                entering={FadeInDown.duration(400).delay(100 * (concept.lesson.sections.length + 3))}
+                style={styles.quizStatsWrapper}
+              >
+                <View style={[styles.quizStatsCard, { borderColor: colors.cardBorder }]}>
+                  <BlurView intensity={20} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.blur}>
+                    <LinearGradient
+                      colors={
+                        theme === 'dark'
+                          ? (['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)'] as const)
+                          : (['rgba(0, 0, 0, 0.03)', 'rgba(0, 0, 0, 0.01)'] as const)
+                      }
+                      style={styles.quizStatsContent}
+                    >
+                      <Text style={[styles.quizStatsLabel, { color: colors.textTertiary }]}>
+                        📊 TES STATS DE QUIZ
+                      </Text>
+                      <View style={styles.quizStatsRow}>
+                        <View style={styles.quizStat}>
+                          <Text style={[styles.quizStatValue, { color: colors.text }]}>
+                            {quizStats.attempts}
+                          </Text>
+                          <Text style={[styles.quizStatLabel, { color: colors.textTertiary }]}>
+                            {quizStats.attempts === 1 ? 'Tentative' : 'Tentatives'}
+                          </Text>
+                        </View>
+                        <View style={styles.quizStat}>
+                          <Text style={[styles.quizStatValue, { color: colors.text }]}>
+                            {quizStats.bestScore}%
+                          </Text>
+                          <Text style={[styles.quizStatLabel, { color: colors.textTertiary }]}>
+                            Meilleur
+                          </Text>
+                        </View>
+                        <View style={styles.quizStat}>
+                          <Text style={[styles.quizStatValue, { color: quizStats.passed ? colors.success : '#ef4444' }]}>
+                            {quizStats.passed ? '✓' : '✗'}
+                          </Text>
+                          <Text style={[styles.quizStatLabel, { color: colors.textTertiary }]}>
+                            {quizStats.passed ? 'Réussi' : 'Non réussi'}
+                          </Text>
+                        </View>
+                      </View>
+                    </LinearGradient>
+                  </BlurView>
+                </View>
+              </Animated.View>
+            )}
 
-          {/* Gradient fade */}
-          <LinearGradient
-            colors={
-              theme === 'dark'
-                ? ['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.8)', 'rgba(0, 0, 0, 1)']
-                : ['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0.8)', 'rgba(255, 255, 255, 1)']
-            }
-            style={styles.fadeGradient}
-            pointerEvents="none"
-          />
+            <View style={{ height: 140 }} />
+          </ScrollView>
         </View>
 
-        {/* Footer */}
-        <Animated.View entering={FadeIn.duration(400).delay(800)} style={styles.footer}>
-          {/* Quiz Button avec stats tentatives */}
-          {quizAvailable && (
-            <Pressable
+        {/* Footer avec boutons */}
+        <Animated.View
+          entering={FadeIn.duration(400).delay(800)}
+          style={styles.footer}
+        >
+          {/* Bouton Quiz - Seulement si pas de score parfait */}
+          {quizAvailable && !hasPerfectScore && (
+            <Button
+              variant="secondary"
               onPress={handleStartQuiz}
-              style={({ pressed }) => [
-                styles.quizButton,
-                { 
-                  backgroundColor: theme === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
-                  borderColor: colors.cardBorder,
-                  opacity: pressed ? 0.8 : 1,
+              style={{ marginBottom: 12 }}
+            >
+              <Text style={[{ fontSize: 14, fontWeight: '500' }, { color: colors.text }]}>
+                {getQuizButtonText()}
+              </Text>
+            </Button>
+          )}
+
+          {/* Badge Quiz Maîtrisé - Si score parfait */}
+          {quizAvailable && hasPerfectScore && (
+            <View
+              style={[
+                styles.perfectScoreBadge,
+                {
+                  backgroundColor: colors.success + '20',
+                  borderColor: colors.success + '40',
                 },
               ]}
             >
-              <View style={styles.quizButtonContent}>
-                <View style={styles.quizButtonLeft}>
-                  <Text style={styles.quizIcon}>🎮</Text>
-                  <View style={styles.quizTextContainer}>
-                    <View style={styles.quizTitleRow}>
-                      <Text style={[styles.quizTitle, { color: colors.text }]}>
-                        Tester mes connaissances
-                      </Text>
-                      {quizPassed && (
-                        <Text style={styles.quizPassedBadge}>✓</Text>
-                      )}
-                    </View>
-                    <Text style={[styles.quizSubtext, { color: colors.textTertiary }]}>
-                      {getQuizSubtext()}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={[styles.quizArrow, { color: colors.textTertiary }]}>→</Text>
-              </View>
-            </Pressable>
+              <Text style={[styles.perfectScoreText, { color: colors.success }]}>
+                ✅ Quiz maîtrisé (100%)
+              </Text>
+            </View>
           )}
-          
-          {/* Complete Button */}
-          <Button 
-            onPress={handleComplete} 
+
+          {/* Bouton Compléter */}
+          <Button
+            onPress={handleComplete}
             style={isCompleting || isCompleted ? { opacity: 0.7 } : undefined}
           >
             <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '600' }}>
@@ -327,15 +557,6 @@ export default function LessonScreen() {
             </Text>
           </Button>
         </Animated.View>
-
-        {/* Toast XP */}
-        <Toast
-          visible={showXPToast}
-          title="Bravo !"
-          message={`+${xpEarned} XP gagnés !`}
-          type="success"
-          onHide={() => setShowXPToast(false)}
-        />
       </SafeAreaView>
     </GradientBackground>
   );
@@ -347,11 +568,11 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 20,
+    paddingTop: 16,
+    paddingBottom: 24,
   },
   backButton: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   backText: {
     fontSize: 14,
@@ -359,60 +580,60 @@ const styles = StyleSheet.create({
   conceptHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    marginBottom: 16,
+    gap: 16,
+    marginBottom: 20,
   },
   conceptIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
   },
   conceptIconText: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
+    color: '#8b5cf6',
   },
   conceptInfo: {
     flex: 1,
   },
   conceptName: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '700',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   conceptDescription: {
     fontSize: 14,
   },
   progressDots: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 8,
     justifyContent: 'center',
   },
   dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   contentContainer: {
     flex: 1,
-    position: 'relative',
   },
   scrollContent: {
     paddingHorizontal: 24,
   },
   introduction: {
-    fontSize: 17,
-    lineHeight: 26,
-    marginBottom: 28,
+    fontSize: 18,
+    lineHeight: 28,
+    marginBottom: 32,
     fontWeight: '300',
   },
   sectionWrapper: {
-    marginBottom: 14,
+    marginBottom: 16,
   },
   sectionCard: {
-    borderRadius: 18,
+    borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
   },
@@ -420,95 +641,155 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   sectionContent: {
-    padding: 18,
+    padding: 20,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   sectionText: {
     fontSize: 15,
-    lineHeight: 23,
+    lineHeight: 24,
   },
+
+  // Image styles
+  imageContainer: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+  },
+  image: {
+    width: '100%',
+    height: 200,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: 150,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+  },
+  placeholderText: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  placeholderAlt: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingHorizontal: 16,
+  },
+  imageCaption: {
+    fontSize: 13,
+    marginTop: 12,
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
+
+  // Video styles
+  videoPlaceholder: {
+    borderRadius: 16,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    padding: 24,
+    alignItems: 'center',
+    backgroundColor: 'rgba(139, 92, 246, 0.05)',
+  },
+  videoIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  videoText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  videoUrl: {
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  videoNote: {
+    fontSize: 11,
+    fontStyle: 'italic',
+  },
+
   summaryWrapper: {
-    marginTop: 28,
+    marginTop: 32,
     marginBottom: 16,
   },
   summaryCard: {
-    borderRadius: 18,
+    borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 2,
   },
   summaryContent: {
-    padding: 22,
+    padding: 24,
   },
   summaryLabel: {
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1.5,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   summaryText: {
-    fontSize: 15,
-    lineHeight: 24,
+    fontSize: 16,
+    lineHeight: 26,
     fontWeight: '300',
   },
-  fadeGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 160,
+
+  // Quiz Stats styles
+  quizStatsWrapper: {
+    marginTop: 16,
+    marginBottom: 16,
   },
+  quizStatsCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+  },
+  quizStatsContent: {
+    padding: 20,
+  },
+  quizStatsLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    marginBottom: 16,
+  },
+  quizStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  quizStat: {
+    alignItems: 'center',
+  },
+  quizStatValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  quizStatLabel: {
+    fontSize: 12,
+  },
+
   footer: {
     paddingHorizontal: 24,
     paddingBottom: 24,
-    paddingTop: 12,
-    gap: 10,
+    paddingTop: 16,
   },
-  
-  // Quiz Button with stats
-  quizButton: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 14,
-  },
-  quizButtonContent: {
-    flexDirection: 'row',
+  perfectScoreBadge: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    borderWidth: 2,
     alignItems: 'center',
-    justifyContent: 'space-between',
+    marginBottom: 12,
   },
-  quizButtonLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  quizIcon: {
-    fontSize: 26,
-  },
-  quizTextContainer: {
-    flex: 1,
-  },
-  quizTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  quizTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  quizPassedBadge: {
-    fontSize: 13,
-    color: '#10b981',
-  },
-  quizSubtext: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  quizArrow: {
+  perfectScoreText: {
     fontSize: 16,
+    fontWeight: '600',
   },
 });
