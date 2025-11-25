@@ -6,7 +6,7 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GradientBackground } from '../../components/ui/GradientBackground';
@@ -30,7 +30,9 @@ export default function ConceptsScreen() {
   // Scores de quiz par concept
   const [quizScores, setQuizScores] = useState<Record<string, number>>({});
 
-  // ✅ CORRECTION : Passer game en paramètre pour éviter la boucle infinie
+    // Compter les quiz complétés
+  const [quizCompletedCount, setQuizCompletedCount] = React.useState(0);
+
   const loadAllStats = useCallback(async (gameData: typeof game) => {
     if (!gameData) return;
 
@@ -72,7 +74,6 @@ export default function ConceptsScreen() {
 
       setQuizScores(scores);
 
-      // 3. ✅ NOUVEAU : Calculer le pourcentage de complétion globale (arrondi inférieur)
       const quizCompletion = totalQuestions > 0
         ? Math.floor((totalCorrectAnswers / totalQuestions) * 100)
         : 0;
@@ -95,6 +96,20 @@ export default function ConceptsScreen() {
       loadAllStats(game);
     }
   }, [game, loadAllStats]);
+
+  React.useEffect(() => {
+    if (!game) return;
+
+    const countCompletedQuizzes = async () => {
+      let count = 0;
+      for (const concept of game.concepts) {
+        const passed = await quizHistoryService.hasPassedQuiz(concept.id);
+        if (passed) count++;
+      }
+      setQuizCompletedCount(count);
+    };
+    countCompletedQuizzes();
+  }, [game]);
 
   // Refetch quand l'écran revient au focus
   useFocusEffect(
@@ -140,21 +155,6 @@ export default function ConceptsScreen() {
     return '#ef4444';                          // Rouge
   };
 
-  // Compter les quiz complétés
-  const [quizCompletedCount, setQuizCompletedCount] = React.useState(0);
-
-  React.useEffect(() => {
-    const countCompletedQuizzes = async () => {
-      let count = 0;
-      for (const concept of game.concepts) {
-        const passed = await quizHistoryService.hasPassedQuiz(concept.id);
-        if (passed) count++;
-      }
-      setQuizCompletedCount(count);
-    };
-    countCompletedQuizzes();
-  }, [game]);
-
   // Progression globale : leçons + quiz
   const totalItems = game.concepts.length * 2; // 6 leçons + 6 quiz = 12
   const completedItems = completedCount + quizCompletedCount;
@@ -168,30 +168,67 @@ export default function ConceptsScreen() {
         <Text style={[styles.backText, { color: colors.textSecondary }]}>← Retour</Text>
       </Pressable>
 
-      {/* Image de couverture + Titre */}
-      <View style={styles.headerTop}>
-        <Animated.Image
-          source={
-            typeof game.coverImageUrl === 'string'
-              ? { uri: game.coverImageUrl }
-              : game.coverImageUrl
-          }
-          style={styles.coverImage}
-          resizeMode="cover"
-        />
-        <LinearGradient
-          colors={['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.7)'] as any}
-          style={styles.coverOverlay}
-        />
-        <View style={styles.titleContainer}>
-          <Text style={[styles.gameTitle, { color: '#ffffff' }]}>{game.name}</Text>
-          <Text style={[styles.gameSubtitle, { color: 'rgba(255, 255, 255, 0.8)' }]}>
-            {game.description}
-          </Text>
-        </View>
-      </View>
+{/* Image de couverture + Titre + Stats overlay */}
+<View style={styles.headerTop}>
+  <Animated.Image
+    source={
+      typeof game.coverImageUrl === 'string'
+        ? { uri: game.coverImageUrl }
+        : game.coverImageUrl
+    }
+    style={styles.coverImage}
+    resizeMode="cover"
+  />
+  
+  {/* Overlay noir en bas */}
+  <LinearGradient
+    colors={['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.7)'] as any}
+    style={styles.coverOverlay}
+  />
+  
+  {/* Titre en bas à gauche */}
+  <View style={styles.titleContainer}>
+    <Text style={[styles.gameTitle, { color: '#ffffff' }]}>{game.name}</Text>
+    <Text style={[styles.gameSubtitle, { color: 'rgba(255, 255, 255, 0.8)' }]}>
+      {game.description}
+    </Text>
+  </View>
+  
+  {/* Stats en colonne à droite */}
+    <View style={styles.statsOverlay}>
+    {/* Joueurs */}
+    <View style={styles.statOverlayItem}>
+      <Text style={styles.statOverlayText}>{game.playerCount}</Text>
+      <Image
+        source={require('../../assets/images/icones/personnes.png')}
+        style={styles.statIcon}
+        resizeMode="contain"
+      />
+    </View>
 
-      {/* Encart infos essentielles */}
+    {/* Durée */}
+    <View style={styles.statOverlayItem}>
+      <Text style={styles.statOverlayText}>{game.playTime}</Text>
+      <Image
+        source={require('../../assets/images/icones/sablier.png')}
+        style={styles.statIcon}
+        resizeMode="contain"
+      />
+    </View>
+
+    {/* Âge */}
+    <View style={styles.statOverlayItem}>
+      <Text style={styles.statOverlayText}>{game.age}+</Text>
+      <Image
+        source={require('../../assets/images/icones/tranche-dage.png')}
+        style={styles.statIcon}
+        resizeMode="contain"
+      />
+    </View>
+    </View>
+  </View>
+
+    {/* Encart BGG + Ressources */}
       <View style={[styles.infoCard, { borderColor: colors.cardBorder }]}>
         <BlurView intensity={20} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.infoBlur}>
           <LinearGradient
@@ -202,87 +239,66 @@ export default function ConceptsScreen() {
             }
             style={styles.infoContent}
           >
-            {/* Ligne 1 : Joueurs, Durée, Âge */}
-            <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoIcon}>👥</Text>
-                <Text style={[styles.infoText, { color: colors.text }]}>{game.playerCount}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoIcon}>⏱️</Text>
-                <Text style={[styles.infoText, { color: colors.text }]}>{game.playTime}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoIcon}>🎂</Text>
-                <Text style={[styles.infoText, { color: colors.text }]}>{game.age}+</Text>
-              </View>
-            </View>
-
-            <View style={[styles.infoDivider, { backgroundColor: colors.cardBorder }]} />
-
-            {/* Ligne 2 : BGG, Règles, Vidéos */}
-            <View style={styles.infoRow}>
-              {/* BGG Rating */}
-              <View style={styles.infoItem}>
-                <Text style={styles.infoIcon}>⭐</Text>
-                <Text style={[styles.infoText, { color: colors.text }]}>
-                  {game.bggRating}/10
+          <View style={styles.resourcesRow}>
+            {/* BGG Rating - Bouton */}
+            {game.bggRating && (
+              <Pressable 
+                onPress={() => Linking.openURL('https://boardgamegeek.com')} 
+                style={[styles.resourceButton, { backgroundColor: '#ff571515', borderColor: '#ff571530' }]}
+              >
+                <Image
+                  source={require('../../assets/images/icones/bgglogo.png')}
+                  style={styles.resourceButtonIcon}
+                  resizeMode="contain"
+                />
+                <Text style={[styles.resourceButtonText, { color: '#ff5715' }]}>
+                  {game.bggRating.toFixed(1)}
                 </Text>
-              </View>
-
-              {/* Règles PDF */}
-              <Pressable 
-                onPress={() => Linking.openURL(game.rulesUrl)}
-                style={styles.infoItem}
-              >
-                <Text style={styles.infoIcon}>📄</Text>
-                <Text style={[styles.infoLink, { color: colors.primary }]}>Règles</Text>
               </Pressable>
+            )}
 
-              {/* Vidéos */}
+            {/* Règles PDF - Bouton */}
+            {game.rulesUrl && (
               <Pressable 
-                onPress={() => game.videoUrls[0] && Linking.openURL(game.videoUrls[0])}
-                style={styles.infoItem}
+                onPress={() => Linking.openURL(game.rulesUrl)} 
+                style={[styles.resourceButton, { 
+                  backgroundColor: colors.cardBackground, 
+                  borderColor: colors.cardBorder 
+                }]}
               >
-                <Text style={styles.infoIcon}>🎬</Text>
-                <Text style={[styles.infoLink, { color: colors.primary }]}>Vidéos</Text>
+                <Image
+                  source={require('../../assets/images/icones/fichier-pdf.png')}
+                  style={[styles.resourceButtonIcon, { tintColor: theme === 'dark' ? '#ffffff' : '#000000' }]}
+                  resizeMode="contain"
+                />
+                <Text style={[styles.resourceButtonText, { color: colors.text }]}>Règles</Text>
               </Pressable>
-            </View>
-          </LinearGradient>
-        </BlurView>
-      </View>
+            )}
 
-      {/* Barre de progression - Leçons + Quiz */}
-      <View style={[styles.progressCard, { borderColor: colors.cardBorder }]}>
-        <BlurView intensity={20} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.progressBlur}>
-          <LinearGradient
-            colors={
-              theme === 'dark'
-                ? ['rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.01)']
-                : ['rgba(0, 0, 0, 0.03)', 'rgba(0, 0, 0, 0.01)']
-            }
-            style={styles.progressContent}
-          >
-            <View style={styles.progressHeader}>
-              <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>
-                Progression globale
-              </Text>
-              <Text style={[styles.progressPercent, { color: colors.text }]}>{progress}%</Text>
-            </View>
-            <View style={styles.progressBarBg}>
-              <Animated.View
-                style={[styles.progressBarFill, { width: `${progress}%`, backgroundColor: colors.primary }]}
-              />
-            </View>
-            <Text style={[styles.progressDetail, { color: colors.textTertiary }]}>
-              {completedCount} leçons + {quizCompletedCount} quiz / 12 total
-            </Text>
+            {/* Vidéos - Bouton */}
+            {game.videoUrls && game.videoUrls.length > 0 && (
+              <Pressable 
+                onPress={() => Linking.openURL(game.videoUrls[0])} 
+                style={[styles.resourceButton, { 
+                  backgroundColor: colors.cardBackground, 
+                  borderColor: colors.cardBorder 
+                }]}
+              >
+                <Image
+                  source={require('../../assets/images/icones/youtube.png')}
+                  style={[styles.resourceButtonIcon, { tintColor: theme === 'dark' ? '#ffffff' : '#000000' }]}
+                  resizeMode="contain"
+                />
+                 <Text style={[styles.resourceButtonText, { color: colors.text }]}>Vidéos</Text>
+              </Pressable>
+            )}
+          </View>
           </LinearGradient>
         </BlurView>
       </View>
     </Animated.View>
 
-        {/* Concepts List */}
+      {/* Concepts List */}
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={styles.scrollContent}
@@ -415,29 +431,30 @@ export default function ConceptsScreen() {
                 }
                 style={styles.statsContent}
               >
-                {/* XP Total (leçons + quiz) */}
-                <View style={styles.stat}>
-                  <Text style={[styles.statValue, { color: colors.text }]}>
-                    {quizCompletedCount}/6
-                  </Text>
-                  <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Quiz réussis</Text>
-                </View>
-
-                {/* ✅ Pourcentage de complétion global de tous les quiz */}
-                <View style={styles.stat}>
-                  <Text style={[styles.statValue, { color: colors.text }]}>
-                    {globalStats.quizAverage > 0 ? `${globalStats.quizAverage}%` : '-'}
-                  </Text>
-                  <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Complétion</Text>
-                </View>
-
                 {/* Concepts complétés */}
                 <View style={styles.stat}>
                   <Text style={[styles.statValue, { color: colors.text }]}>
                     {completedCount}/{game.concepts.length}
                   </Text>
-                  <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Complétés</Text>
+                  <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Leçons</Text>
                 </View>
+
+                {/* Quiz réussis */}
+                <View style={styles.stat}>
+                  <Text style={[styles.statValue, { color: colors.text }]}>
+                    {quizCompletedCount}/6
+                  </Text>
+                  <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Quiz</Text>
+                </View>
+
+                {/* XP Total (leçons + quiz) */}
+                <View style={styles.stat}>
+                  <Text style={[styles.statValue, { color: colors.text }]}>
+                    {globalStats.totalXP}
+                  </Text>
+                  <Text style={[styles.statLabel, { color: colors.textTertiary }]}>XP Total</Text>
+                </View>
+
               </LinearGradient>
             </BlurView>
           </View>
@@ -454,7 +471,7 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 24,
     paddingTop: 16,
-    paddingBottom: 24,
+    paddingBottom: 5,
   },
   headerTop: {
     height: 200,
@@ -492,11 +509,11 @@ const styles = StyleSheet.create({
   infoContent: {
     padding: 16,
   },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-  },
+  resourcesRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-around',
+  alignItems: 'center',
+},
   infoItem: {
     alignItems: 'center',
     gap: 4,
@@ -512,10 +529,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     textDecorationLine: 'underline',
-  },
-  infoDivider: {
-    height: 1,
-    marginVertical: 12,
   },
   progressDetail: {
     fontSize: 11,
@@ -536,40 +549,6 @@ const styles = StyleSheet.create({
   gameSubtitle: {
     fontSize: 14,
     marginBottom: 20,
-  },
-  progressCard: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-  },
-  progressBlur: {
-    overflow: 'hidden',
-  },
-  progressContent: {
-    padding: 16,
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  progressLabel: {
-    fontSize: 12,
-  },
-  progressPercent: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  progressBarBg: {
-    height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 4,
   },
   scrollContent: {
     paddingHorizontal: 24,
@@ -687,4 +666,48 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 10,
   },
+  statsOverlay: {
+  position: 'absolute',
+  top: 16,
+  right: 16,
+  gap: 12,
+},
+statOverlayItem: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  gap: 8,
+  backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  paddingHorizontal: 12,
+  paddingVertical: 8,
+  borderRadius: 12,
+  backdropFilter: 'blur(10px)',
+},
+statIcon: {
+  width: 16,
+  height: 16,
+  tintColor: '#ffffff',
+},
+statOverlayText: {
+  color: '#ffffff',
+  fontSize: 13,
+  fontWeight: '600',
+},
+resourceButton: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 8,
+  paddingVertical: 10,
+  paddingHorizontal: 14,
+  borderRadius: 12,
+  borderWidth: 1,
+},
+resourceButtonIcon: {
+  width: 16,
+  height: 16,
+},
+resourceButtonText: {
+  fontSize: 13,
+  fontWeight: '600',
+},
 });

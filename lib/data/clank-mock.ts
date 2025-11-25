@@ -51,8 +51,8 @@ export const CLANK_GAME: Game = {
   icon: '🐉',
   description: 'Les Aventuriers du Deck-building',
   difficulty: 'intermediate',
-  playerCount: '2-4 joueurs',
-  playTime: '45-60 min',
+  playerCount: '2-4',
+  playTime: '45-60',
   
   // ✨ NOUVELLES VALEURS
   age: 12,
